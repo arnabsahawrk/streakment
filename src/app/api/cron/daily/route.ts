@@ -7,13 +7,17 @@ import { sendEmail, emailShell } from "@/lib/email";
 
 export const maxDuration = 60;
 
+/** Every milestone email goes to this one address. Personal app, one
+ *  person, no accounts to look an email up on. */
+const NOTIFY_EMAIL = "arnabsahawrk@gmail.com";
+
 /**
  * Runs once a day (vercel.json). Streaks are computed on read and nothing
  * happens at midnight on its own, so this is what turns "you crossed a
  * milestone" into an email.
  *
  * Every send is recorded in email_log, which has a unique index on
- * (user, streak, kind, marker). A retry, an overlapping run, or a manual
+ * (streak, kind, marker). A retry, an overlapping run, or a manual
  * trigger therefore cannot send the same congratulation twice - the
  * insert simply conflicts and is skipped.
  */
@@ -24,22 +28,20 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const [settings] = await sql`select email_milestones from user_settings where singleton = true`;
+  if (!settings?.email_milestones) {
+    return NextResponse.json({ ok: true, considered: 0, sent: 0, skipped: 0, note: "milestone emails are off" });
+  }
+
   const rows = await sql`
-    select d.id, d.name, d.kind, d.goal_days, d.start_date, d.user_id,
-           u."email" as email, u."name" as user_name,
-           coalesce(s.email_milestones, true) as opted_in
-    from disciplines d
-    join "user" u on u."id" = d.user_id
-    left join user_settings s on s.user_id = d.user_id
-    where d.archived = false and d.start_date is not null
+    select id, name, kind, goal_days, start_date from streaks
+    where archived = false and start_date is not null and email_enabled = true
   `;
 
   let sent = 0;
   let skipped = 0;
 
   for (const r of rows) {
-    if (!r.opted_in || !r.email) { skipped++; continue; }
-
     const days = currentStreakDays(r.start_date);
     if (days < 1) continue;
 
@@ -52,9 +54,9 @@ export async function GET(req: Request) {
     if (isSprint && days === r.goal_days) {
       kind = "sprint_complete";
       marker = String(days);
-      title = `${r.name} — sprint complete`;
-      body = `<p style="margin:0 0 12px;color:#F2ECE3;font-size:15px;line-height:1.6">You set ${days} ${dayWord(days)} and you got there. Done.</p>
-<p style="margin:0;color:#A79C8C;font-size:14px;line-height:1.6">When you're ready, finish and archive it so it's recorded properly.</p>`;
+      title = `${r.name} — challenge complete`;
+      body = `<p style="margin:0 0 12px;color:#F2ECE3;font-size:15px;line-height:1.6">You set ${days} ${dayWord(days)}. You reached it. That's the whole game.</p>
+<p style="margin:0;color:#A79C8C;font-size:14px;line-height:1.6">Finish and archive it so it's recorded properly.</p>`;
     } else if (!isSprint && TIERS.some((t) => t.min === days)) {
       const tier = getTier(days);
       kind = "milestone";
@@ -64,8 +66,8 @@ export async function GET(req: Request) {
 <p style="margin:0 0 12px;color:#F2ECE3;font-size:17px;font-weight:700">${tier.line}</p>
 <p style="margin:0;color:#A79C8C;font-size:14px;line-height:1.6">${
         days >= LEGEND_MIN
-          ? "A full year. You can finish and archive this one whenever you like — it's earned."
-          : "Still going. Keep the commitment alive."
+          ? "A full year. Finish and archive this one whenever you like — it's earned."
+          : "Don't stop now. Keep the streakment alive."
       }</p>`;
     }
 
@@ -73,16 +75,15 @@ export async function GET(req: Request) {
 
     // Claim the send first. If this conflicts, another run already did it.
     const claim = await sql`
-      insert into email_log (user_id, discipline_id, kind, marker)
-      values (${r.user_id}, ${r.id}, ${kind}, ${marker})
+      insert into email_log (streak_id, kind, marker)
+      values (${r.id}, ${kind}, ${marker})
       on conflict do nothing
       returning id
     `;
     if (claim.length === 0) { skipped++; continue; }
 
     const ok = await sendEmail({
-      to: r.email,
-      toName: r.user_name ?? undefined,
+      to: NOTIFY_EMAIL,
       subject: title,
       html: emailShell(title, body),
     });

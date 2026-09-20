@@ -5,20 +5,17 @@ import { Menu, Plus } from "lucide-react";
 import StreakCard from "./StreakCard";
 import Sidebar from "./Sidebar";
 import ArchiveSheet from "./ArchiveSheet";
-import ProfileSheet from "./ProfileSheet";
 import SettingsSheet from "./SettingsSheet";
+import Loading from "./Loading";
 import { AddStreakDialog } from "./Dialogs";
 import { currentStreakDays } from "@/lib/streak";
-import type { SessionUser } from "@/lib/session";
 import type { Streak, UserSettings } from "@/lib/types";
 
-type Sheet = "archive" | "profile" | "settings" | null;
+type Sheet = "archive" | "settings" | null;
 
 export default function Dashboard({
-  user,
   settings: initialSettings,
 }: {
-  user: SessionUser;
   settings: UserSettings;
 }) {
   const [streaks, setStreaks] = useState<Streak[] | null>(null);
@@ -47,7 +44,7 @@ export default function Dashboard({
       <header className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight">STREAKMENT</h1>
-          <p className="mt-0.5 text-sm text-flame">Keep the commitment alive.</p>
+          <p className="mt-0.5 text-sm text-flame">Keep the streakment alive.</p>
         </div>
         <button
           onClick={() => setMenuOpen(true)}
@@ -60,16 +57,16 @@ export default function Dashboard({
 
       {sorted.length > 0 && (
         <p className="mb-5 text-xs text-paper-dim">
-          {sorted.length} {sorted.length === 1 ? "commitment" : "commitments"} running
+          {sorted.length} {sorted.length === 1 ? "streakment" : "streakments"} running
         </p>
       )}
 
       {streaks === null ? (
-        <p className="text-sm text-paper-dim">Loading…</p>
+        <Loading />
       ) : sorted.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-ember-line px-6 py-16 text-center">
           <p className="mb-1 text-lg font-semibold">Nothing lit yet</p>
-          <p className="prose-justify mx-auto mb-6 max-w-xs text-sm text-paper-dim">
+          <p className="prose-text mx-auto mb-6 max-w-xs text-sm text-paper-dim">
             Start with one thing. Not the hardest thing — the one you&apos;re most ready
             to hold.
           </p>
@@ -90,7 +87,7 @@ export default function Dashboard({
 
       <button
         onClick={() => setAdding(true)}
-        aria-label="New commitment"
+        aria-label="New streakment"
         className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-flame text-ash shadow-[0_8px_30px_rgba(255,107,53,0.35)] transition-transform active:scale-95 sm:bottom-10 sm:right-10"
       >
         <Plus size={26} />
@@ -98,8 +95,6 @@ export default function Dashboard({
 
       {menuOpen && (
         <Sidebar
-          user={user}
-          settings={settings}
           onClose={() => setMenuOpen(false)}
           onOpen={(w) => setSheet(w)}
         />
@@ -108,9 +103,6 @@ export default function Dashboard({
         <AddStreakDialog onClose={() => setAdding(false)} onCreated={() => { setAdding(false); load(); }} />
       )}
       {sheet === "archive" && <ArchiveSheet onClose={() => setSheet(null)} />}
-      {sheet === "profile" && (
-        <ProfileSheet user={user} settings={settings} onClose={() => setSheet(null)} onSaved={setSettings} />
-      )}
       {sheet === "settings" && (
         <SettingsSheet settings={settings} onClose={() => setSheet(null)} onSaved={setSettings} />
       )}

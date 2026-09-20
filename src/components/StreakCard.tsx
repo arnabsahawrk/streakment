@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import confetti from "canvas-confetti";
-import { Route, Share2, Flag } from "lucide-react";
+import { Route, History, Flag, Bell, BellOff } from "lucide-react";
 import Tooltip from "./Tooltip";
 import ProgressRing from "./ProgressRing";
 import StreakCounter from "./StreakCounter";
-import DetailSheet from "./DetailSheet";
-import ShareDialog from "./ShareDialog";
+import RoadmapSheet from "./RoadmapSheet";
+import HistorySheet from "./HistorySheet";
 import { ResetDialog, ArchiveDialog } from "./Dialogs";
 import { viewOf, GOLD } from "@/lib/progress";
 import { TIERS } from "@/lib/tiers";
@@ -24,11 +24,12 @@ export default function StreakCard({
 }) {
   const [resetOpen, setResetOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
-  const [busy, setBusy] = useState<"reset" | "begin" | "archive" | null>(null);
+  const [roadmapOpen, setRoadmapOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [busy, setBusy] = useState<"reset" | "begin" | "archive" | "mute" | null>(null);
   const [pulse, setPulse] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [emailEnabled, setEmailEnabled] = useState(streak.email_enabled);
 
   const v = viewOf(streak);
   const best = Math.max(streak.max_streak, v.days);
@@ -73,6 +74,25 @@ export default function StreakCard({
     }
   }
 
+  async function toggleEmail() {
+    const next = !emailEnabled;
+    setBusy("mute");
+    setErr(null);
+    try {
+      const res = await fetch(`/api/streaks/${streak.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email_enabled: next }),
+      });
+      if (!res.ok) throw new Error();
+      setEmailEnabled(next);
+    } catch {
+      setErr("Couldn't change that.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <motion.div
       animate={pulse ? { scale: [1, 1.02, 1] } : { scale: 1 }}
@@ -88,7 +108,7 @@ export default function StreakCard({
 
       <div className="relative flex flex-col items-center text-center">
         <h3 className="break-words text-lg font-semibold">{streak.name}</h3>
-        <p className="prose-justify mt-1 max-w-xs break-words text-xs text-paper-dim">
+        <p className="prose-text mt-1 max-w-xs break-words text-xs text-paper-dim">
           {streak.why_note}
         </p>
 
@@ -117,7 +137,7 @@ export default function StreakCard({
         <p className="mt-2 max-w-xs text-sm font-bold text-paper">{v.line}</p>
 
         <p className="mt-3 text-xs text-paper-dim">
-          {v.showsBest && <>(Best run: {best} {dayWord(best)})</>}
+          {v.showsBest && <>(Best streak: {best} {dayWord(best)})</>}
           {!v.isPaused && v.isSprint && v.goalDays && !v.isFinished && (
             <> ({v.goalDays - v.days} {dayWord(v.goalDays - v.days)} to go)</>
           )}
@@ -152,17 +172,27 @@ export default function StreakCard({
 
         <div className="mt-5 flex w-full items-center justify-between border-t border-ember-line pt-3">
           <span className="text-[11px] text-paper-dim">
-            {v.isPaused ? "not running" : `since ${formatDate(streak.start_date as string)}`}
+            {v.isPaused ? "Paused" : `since ${formatDate(streak.start_date as string)}`}
           </span>
           <div className="flex items-center gap-3 text-paper-dim">
-            <Tooltip label={v.isSprint ? "Sprint, journal & history" : "Ascent, journal & history"}>
-              <button onClick={() => setDetailOpen(true)} aria-label="Open detail" className="hover:text-paper">
+            <Tooltip label={emailEnabled ? "Milestone emails on for this one" : "Milestone emails muted for this one"}>
+              <button
+                onClick={toggleEmail}
+                disabled={busy === "mute"}
+                aria-label={emailEnabled ? "Mute emails for this streakment" : "Unmute emails for this streakment"}
+                className="hover:text-paper disabled:opacity-40"
+              >
+                {emailEnabled ? <Bell size={16} /> : <BellOff size={16} />}
+              </button>
+            </Tooltip>
+            <Tooltip label="Roadmap">
+              <button onClick={() => setRoadmapOpen(true)} aria-label="Open roadmap" className="hover:text-paper">
                 <Route size={16} />
               </button>
             </Tooltip>
-            <Tooltip label="Share a live image">
-              <button onClick={() => setShareOpen(true)} aria-label="Share" className="hover:text-paper">
-                <Share2 size={16} />
+            <Tooltip label="History">
+              <button onClick={() => setHistoryOpen(true)} aria-label="Open history" className="hover:text-paper">
+                <History size={16} />
               </button>
             </Tooltip>
             <Tooltip label="Finish and archive">
@@ -192,10 +222,8 @@ export default function StreakCard({
           onConfirm={(reason) => call(`/api/streaks/${streak.id}/archive`, { reason }, "archive")}
         />
       )}
-      {detailOpen && (
-        <DetailSheet streakId={streak.id} onClose={() => setDetailOpen(false)} onChanged={onChange} />
-      )}
-      {shareOpen && <ShareDialog streak={streak} onClose={() => setShareOpen(false)} />}
+      {roadmapOpen && <RoadmapSheet streakId={streak.id} onClose={() => setRoadmapOpen(false)} />}
+      {historyOpen && <HistorySheet streakId={streak.id} onClose={() => setHistoryOpen(false)} />}
     </motion.div>
   );
 }

@@ -6,7 +6,7 @@ export const NEUTRAL = "#8A8578";
 export const GOLD = "#E0A82E";
 
 export const PAUSED_LINE = "No rush. Begin again when you're ready.";
-export const SPRINT_DONE_LINE = "Done. I said I would, and I did.";
+export const SPRINT_DONE_LINE = "Promise kept.";
 
 export const SPRINT_PRESETS = [3, 7, 21, 30];
 /** Backwards-compatible name used by the challenge creation UI. */
@@ -63,7 +63,7 @@ export function viewOf(s: {
       upNext: null,
       line: PAUSED_LINE,
       caption: "PAUSED",
-      pill: isSprint ? `${goalDays}-DAY SPRINT` : null,
+      pill: isSprint ? `${goalDays}-DAY CHALLENGE` : null,
       showsBest: !isSprint,
     };
   }
@@ -86,7 +86,7 @@ export function viewOf(s: {
       upNext: null,
       line: done ? SPRINT_DONE_LINE : tier.line,
       caption: done ? "COMPLETE" : `OF ${goal} ${dayWord(goal).toUpperCase()}`,
-      pill: `${goal}-DAY SPRINT`,
+      pill: `${goal}-DAY CHALLENGE`,
       showsBest: false,
     };
   }

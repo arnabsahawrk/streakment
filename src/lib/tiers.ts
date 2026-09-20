@@ -26,7 +26,7 @@ export const TIERS: Tier[] = [
   { name: "Consistent", line: "This is becoming who I am.", color: "#F59E0B", min: 21 },
   { name: "Thrive", line: "My old habits are losing their hold.", color: "#EAB308", min: 30 },
   { name: "Strong", line: "I am no longer who I used to be.", color: "#FDE047", min: 60 },
-  { name: "Dedicated", line: "I live by my commitment.", color: "#B45309", min: 90 },
+  { name: "Dedicated", line: "I live by my streakment.", color: "#B45309", min: 90 },
   { name: "Master", line: "Discipline has become part of me.", color: "#3B82F6", min: 180 },
   { name: "Legend", line: "I became the person I promised to become.", color: "#E0A82E", min: 365 },
 ];

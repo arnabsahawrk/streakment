@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Streakment — Keep the commitment alive",
+    name: "Streakment",
     short_name: "Streakment",
     description:
-      "Track the commitments you've made to yourself: milestones, journal, heatmap and history.",
+      "Track the streakments you've made to yourself: milestones, heatmap and history.",
     start_url: "/",
     scope: "/",
     display: "standalone",

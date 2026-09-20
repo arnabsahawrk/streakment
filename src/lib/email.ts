@@ -45,7 +45,7 @@ export function emailShell(title: string, bodyHtml: string): string {
 <h1 style="margin:0 0 16px;color:#F2ECE3;font-size:20px">${title}</h1>
 ${bodyHtml}
 <p style="margin:28px 0 0;color:#A79C8C;font-size:12px;border-top:1px solid #2E2620;padding-top:16px">
-Keep the commitment alive. · <a href="https://streakment.vercel.app" style="color:#FF6B35;text-decoration:none">Open Streakment</a>
+Keep the streakment alive. · <a href="https://streakment.vercel.app" style="color:#FF6B35;text-decoration:none">Open Streakment</a>
 </p>
 </td></tr></table></td></tr></table></body></html>`;
 }

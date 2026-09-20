@@ -30,12 +30,11 @@ body::-webkit-scrollbar,
   height: 0;
 }
 
-/* Long-form prose justifies; hyphenation stops justification from
-   opening rivers of whitespace on narrow phone screens. */
-.prose-justify {
-  text-align: justify;
-  -webkit-hyphens: auto;
-  hyphens: auto;
+/* Body text: left-aligned (not justified — narrow columns turn
+   justification into ugly rivers of whitespace), with a safety net
+   for long unbreakable strings. */
+.prose-text {
+  text-align: left;
   overflow-wrap: anywhere;
 }
 

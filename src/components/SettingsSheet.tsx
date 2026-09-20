@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Modal from "./Modal";
-import { LIMITS } from "@/lib/limits";
 import type { UserSettings } from "@/lib/types";
 
 function Toggle({
@@ -16,7 +16,7 @@ function Toggle({
     >
       <span className="min-w-0">
         <span className="block text-sm">{label}</span>
-        <span className="prose-justify mt-0.5 block text-[11px] text-paper-dim">{hint}</span>
+        <span className="prose-text mt-0.5 block text-[11px] text-paper-dim">{hint}</span>
       </span>
       <span
         className={`mt-0.5 h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors ${checked ? "bg-flame" : "bg-ember-line"}`}
@@ -30,10 +30,10 @@ function Toggle({
 export default function SettingsSheet({
   settings, onClose, onSaved,
 }: { settings: UserSettings; onClose: () => void; onSaved: (s: UserSettings) => void }) {
+  const router = useRouter();
   const [s, setS] = useState(settings);
-  const [url, setUrl] = useState(settings.commitment_url ?? "");
-  const [label, setLabel] = useState(settings.commitment_label ?? "");
-  const [pass, setPass] = useState("");
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -54,22 +54,41 @@ export default function SettingsSheet({
     } finally { setBusy(false); }
   }
 
-  async function passcode(action: "set" | "remove") {
+  async function passcode(action: "set" | "change" | "remove") {
     setBusy(true); setErr(null); setMsg(null);
     try {
+      const body =
+        action === "change"
+          ? { action, currentPasscode: current, newPasscode: next }
+          : { action, passcode: action === "set" ? next : current };
       const res = await fetch("/api/passcode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, passcode: pass }),
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Couldn't update the passcode.");
-      const next = { ...s, has_passcode: action === "set" };
-      setS(next); onSaved(next); setPass("");
-      setMsg(action === "set" ? "Passcode set." : "Passcode removed.");
+      const updated = { ...s, has_passcode: action !== "remove" };
+      setS(updated); onSaved(updated); setCurrent(""); setNext("");
+      setMsg(action === "remove" ? "Passcode removed." : "Passcode saved.");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't update the passcode.");
     } finally { setBusy(false); }
+  }
+
+  async function lockNow() {
+    setBusy(true);
+    try {
+      await fetch("/api/passcode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "lock" }),
+      });
+      router.replace("/unlock");
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -78,78 +97,79 @@ export default function SettingsSheet({
       <div className="mb-5 flex flex-col gap-2">
         <Toggle
           label="Milestone emails"
-          hint="A note when you cross a step on an Ascent, or finish a Sprint. Checked once a day."
+          hint="A note when you cross a step on a Climb, or finish a Challenge. Checked once a day. Turning this off mutes every streakment; each one can also be muted on its own from its card."
           checked={s.email_milestones}
           onChange={(v) => patch({ email_milestones: v })}
-        />
-        <Toggle
-          label="Weekly review"
-          hint="A short summary of the week across every commitment."
-          checked={s.email_weekly}
-          onChange={(v) => patch({ email_weekly: v })}
         />
       </div>
 
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-paper-dim">
-        Your commitment doc
-      </p>
-      <p className="prose-justify mb-2 text-[11px] text-paper-dim">
-        A link to wherever you keep the promise you&apos;re holding yourself to — a Notion
-        page, a Google Doc, anything. It sits in the menu so it&apos;s one tap away when
-        you need reminding why.
-      </p>
-      <input
-        value={url}
-        onChange={(e) => setUrl(e.target.value.slice(0, LIMITS.commitmentUrl))}
-        placeholder="https://…"
-        className="mb-2 w-full rounded-lg border border-ember-line bg-ash px-3 py-2.5 text-sm focus:border-flame focus:outline-none"
-      />
-      <input
-        value={label}
-        onChange={(e) => setLabel(e.target.value.slice(0, LIMITS.commitmentLabel))}
-        placeholder="What to call it (e.g. My commitment)"
-        className="w-full rounded-lg border border-ember-line bg-ash px-3 py-2.5 text-sm focus:border-flame focus:outline-none"
-      />
-      <button
-        onClick={() => patch({ commitment_url: url, commitment_label: label })}
-        disabled={busy}
-        className="mt-2 w-full rounded-lg border border-ember-line py-2 text-sm text-paper-dim hover:border-flame hover:text-flame disabled:opacity-40"
-      >
-        Save link
-      </button>
-
-      <p className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wide text-paper-dim">
         App passcode
       </p>
-      <p className="prose-justify mb-2 text-[11px] text-paper-dim">
-        A second lock on top of your Google sign-in, for a shared or borrowed device.
-        You&apos;ll be asked for it each time the app is opened fresh.
+      <p className="prose-text mb-2 text-[11px] text-paper-dim">
+        {s.has_passcode
+          ? "Set. You'll be asked for it each time the app is opened fresh."
+          : "Off. Anyone who opens the app sees everything — set one to lock it."}
       </p>
-      <input
-        type="password"
-        value={pass}
-        onChange={(e) => setPass(e.target.value)}
-        placeholder={s.has_passcode ? "Current passcode to remove it" : "Choose a passcode"}
-        className="w-full rounded-lg border border-ember-line bg-ash px-3 py-2.5 font-mono text-sm tracking-widest focus:border-flame focus:outline-none"
-      />
-      <div className="mt-2 flex gap-2">
-        <button
-          onClick={() => passcode("set")}
-          disabled={busy || pass.length < 4}
-          className="flex-1 rounded-lg bg-flame py-2 text-sm font-semibold text-ash disabled:opacity-40"
-        >
-          {s.has_passcode ? "Change" : "Set passcode"}
-        </button>
-        {s.has_passcode && (
+
+      {s.has_passcode ? (
+        <div className="flex flex-col gap-2">
+          <input
+            type="password"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            placeholder="Current passcode"
+            className="w-full rounded-lg border border-ember-line bg-ash px-3 py-2.5 font-mono text-sm tracking-widest focus:border-flame focus:outline-none"
+          />
+          <input
+            type="password"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+            placeholder="New passcode"
+            className="w-full rounded-lg border border-ember-line bg-ash px-3 py-2.5 font-mono text-sm tracking-widest focus:border-flame focus:outline-none"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => passcode("change")}
+              disabled={busy || current.length < 4 || next.length < 4}
+              className="flex-1 rounded-lg bg-flame py-2 text-sm font-semibold text-ash disabled:opacity-40"
+            >
+              Change
+            </button>
+            <button
+              onClick={() => passcode("remove")}
+              disabled={busy || current.length < 4}
+              className="flex-1 rounded-lg border border-ember-line py-2 text-sm text-paper-dim hover:text-red-400 disabled:opacity-40"
+            >
+              Remove
+            </button>
+          </div>
           <button
-            onClick={() => passcode("remove")}
+            onClick={lockNow}
             disabled={busy}
-            className="flex-1 rounded-lg border border-ember-line py-2 text-sm text-paper-dim hover:text-red-400 disabled:opacity-40"
+            className="mt-1 rounded-lg border border-ember-line py-2 text-sm text-paper-dim hover:border-flame hover:text-flame disabled:opacity-40"
           >
-            Remove
+            Lock now
           </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <input
+            type="password"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+            placeholder="Choose a passcode"
+            className="min-w-0 flex-1 rounded-lg border border-ember-line bg-ash px-3 py-2.5 font-mono text-sm tracking-widest focus:border-flame focus:outline-none"
+          />
+          <button
+            onClick={() => passcode("set")}
+            disabled={busy || next.length < 4}
+            className="shrink-0 rounded-lg bg-flame px-4 py-2 text-sm font-semibold text-ash disabled:opacity-40"
+          >
+            Set
+          </button>
+        </div>
+      )}
 
       {err && <p className="mt-3 text-xs text-red-400">{err}</p>}
       {msg && <p className="mt-3 text-xs text-flame">{msg}</p>}

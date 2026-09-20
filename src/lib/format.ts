@@ -20,3 +20,10 @@ export function formatDateTime(date: string | Date): string {
 export function dayWord(n: number): string {
   return n <= 1 ? "day" : "days";
 }
+
+/** The simple, user-facing name for each streak shape. Internally these
+ *  stay "ascent"/"sprint" (matching the database and the type system) —
+ *  only the label shown to a person changes. */
+export function kindLabel(isSprint: boolean): string {
+  return isSprint ? "Challenge" : "Climb";
+}

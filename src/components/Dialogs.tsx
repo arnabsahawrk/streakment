@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Modal from "./Modal";
 import CharCount from "./CharCount";
-import PolishButton from "./PolishButton";
 import { LIMITS } from "@/lib/limits";
 
 export function ResetDialog({
@@ -21,7 +20,7 @@ export function ResetDialog({
 
   return (
     <Modal title="Reset this streak?" onClose={onCancel}>
-      <p className="prose-justify mb-4 text-sm text-paper-dim">
+      <p className="mb-4 text-sm text-paper-dim">
         Day {streak} ends here.{" "}
         {streak > 0 ? "It's kept as your best if it's a new one. " : ""}
         Nothing counts again until you tap Begin — whenever that is.
@@ -31,11 +30,10 @@ export function ResetDialog({
         value={note}
         onChange={(e) => setNote(e.target.value.slice(0, LIMITS.resetNote))}
         rows={3}
-        placeholder="Only you will read this. Being honest here is what makes the pattern insight useful later."
+        placeholder="Only you will read this. Being honest here helps."
         className="w-full resize-none rounded-lg border border-ember-line bg-ash px-3 py-2.5 text-sm focus:border-flame focus:outline-none"
       />
-      <div className="mt-1 flex items-center justify-between">
-        <PolishButton text={note} onPolished={setNote} />
+      <div className="mt-1 flex justify-end">
         <CharCount value={note} max={LIMITS.resetNote} />
       </div>
       <div className="mt-4 flex gap-2">
@@ -71,9 +69,9 @@ export function ArchiveDialog({
 
   return (
     <Modal title="Finish and archive?" onClose={onCancel}>
-      <p className="prose-justify mb-4 text-sm text-paper-dim">
+      <p className="mb-4 text-sm text-paper-dim">
         It stops counting and moves into your archive with everything attached —
-        the journal, the history, the numbers. This can&apos;t be undone.
+        the history, the numbers. This can&apos;t be undone.
       </p>
 
       <label className="mb-1.5 block text-xs text-paper-dim">Closing note</label>
@@ -84,8 +82,7 @@ export function ArchiveDialog({
         placeholder="How did this end, and what are you taking from it?"
         className="w-full resize-none rounded-lg border border-ember-line bg-ash px-3 py-2.5 text-sm focus:border-flame focus:outline-none"
       />
-      <div className="mt-1 flex items-center justify-between">
-        <PolishButton text={reason} onPolished={setReason} />
+      <div className="mt-1 flex justify-end">
         <CharCount value={reason} max={LIMITS.closingNote} />
       </div>
 
@@ -158,7 +155,7 @@ export function AddStreakDialog({
   }
 
   return (
-    <Modal title="New commitment" onClose={onClose}>
+    <Modal title="New streakment" onClose={onClose}>
       <label className="mb-1.5 block text-xs text-paper-dim">What are you committing to</label>
       <input
         autoFocus
@@ -177,8 +174,7 @@ export function AddStreakDialog({
         placeholder="e.g. I keep losing hours to it right before bed, and it wrecks the next morning"
         className="w-full resize-none rounded-lg border border-ember-line bg-ash px-3 py-2.5 focus:border-flame focus:outline-none"
       />
-      <div className="mt-1 flex items-center justify-between">
-        <PolishButton text={why} onPolished={setWhy} />
+      <div className="mt-1 flex justify-end">
         <CharCount value={why} max={LIMITS.why} />
       </div>
 
@@ -191,7 +187,7 @@ export function AddStreakDialog({
             kind === "ascent" ? "border-flame bg-flame/10" : "border-ember-line hover:border-paper-dim"
           }`}
         >
-          <span className="block text-sm font-semibold">Ascent</span>
+          <span className="block text-sm font-semibold">Climb</span>
           <span className="mt-0.5 block text-[11px] leading-snug text-paper-dim">
             No finish line. Climb to Legend.
           </span>
@@ -203,7 +199,7 @@ export function AddStreakDialog({
             kind === "sprint" ? "border-flame bg-flame/10" : "border-ember-line hover:border-paper-dim"
           }`}
         >
-          <span className="block text-sm font-semibold">Sprint</span>
+          <span className="block text-sm font-semibold">Challenge</span>
           <span className="mt-0.5 block text-[11px] leading-snug text-paper-dim">
             Fixed length. Done when you arrive.
           </span>
@@ -233,7 +229,7 @@ export function AddStreakDialog({
             max={365}
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
-            aria-label="Sprint length in days"
+            aria-label="Challenge length in days"
             className="w-full rounded-lg border border-ember-line bg-ash px-3 py-2.5 text-sm focus:border-flame focus:outline-none"
           />
           {!goalOk && <p className="mt-1.5 text-[11px] text-red-400">A whole number between 1 and 365.</p>}

@@ -1,55 +1,6 @@
-import { headers } from "next/headers";
-import { auth } from "@/auth";
+import { cookies } from "next/headers";
 import sql from "@/lib/db";
 import type { UserSettings } from "@/lib/types";
-
-export interface SessionUser {
-  id: string;
-  name: string;
-  email: string;
-  image: string | null;
-}
-
-/** Real server-side session check. Every API route and page calls this;
- *  middleware only does a cheap cookie-presence check for speed, so this
- *  is the actual security boundary. */
-export async function getUser(): Promise<SessionUser | null> {
-  try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user) return null;
-    const u = session.user;
-    return {
-      id: u.id,
-      name: u.name ?? "",
-      email: u.email ?? "",
-      image: u.image ?? null,
-    };
-  } catch {
-    return null;
-  }
-}
-
-/** Reads settings, creating the row on first access so every signed-in
- *  user always has exactly one. */
-export async function getSettings(userId: string): Promise<UserSettings> {
-  const [row] = await sql`
-    insert into user_settings (user_id) values (${userId})
-    on conflict (user_id) do update set updated_at = now()
-    returning *
-  `;
-  return {
-    display_name: row.display_name,
-    date_of_birth: row.date_of_birth
-      ? new Date(row.date_of_birth).toISOString().slice(0, 10)
-      : null,
-    email_milestones: row.email_milestones,
-    email_weekly: row.email_weekly,
-    timezone: row.timezone,
-    commitment_url: row.commitment_url,
-    commitment_label: row.commitment_label,
-    has_passcode: !!row.passcode_hash,
-  };
-}
 
 export const PASSCODE_COOKIE = "sm_unlocked";
 
@@ -59,4 +10,31 @@ export async function hashPasscode(passcode: string): Promise<string> {
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+/** Reads the one settings row, creating it on first access. Personal
+ *  single-user app: there is exactly one of these, always. */
+export async function getSettings(): Promise<UserSettings> {
+  const [row] = await sql`
+    insert into user_settings (singleton) values (true)
+    on conflict (singleton) do update set updated_at = user_settings.updated_at
+    returning *
+  `;
+  return {
+    email_milestones: row.email_milestones,
+    timezone: row.timezone,
+    has_passcode: !!row.passcode_hash,
+  };
+}
+
+/** The one real security boundary in the app. If a passcode is set,
+ *  the request must carry a cookie matching its hash. No passcode set
+ *  means the app is intentionally wide open (e.g. first run). Every
+ *  page and API route that touches streak data calls this — there is
+ *  no session, no account, nothing else standing in front of it. */
+export async function isUnlocked(): Promise<boolean> {
+  const [row] = await sql`select passcode_hash from user_settings where singleton = true`;
+  if (!row?.passcode_hash) return true;
+  const cookie = (await cookies()).get(PASSCODE_COOKIE)?.value;
+  return cookie === row.passcode_hash;
 }

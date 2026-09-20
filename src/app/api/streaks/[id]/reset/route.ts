@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { getUser } from "@/lib/session";
+import { isUnlocked } from "@/lib/session";
 import { currentStreakDays } from "@/lib/streak";
 import { LIMITS, clamp } from "@/lib/limits";
 
@@ -11,32 +11,31 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isUnlocked())) return NextResponse.json({ error: "Locked" }, { status: 401 });
   const { id } = await params;
 
   const body = await req.json().catch(() => ({}));
   const note = clamp(body?.note, LIMITS.resetNote) || null;
 
-  const [s] = await sql`select * from disciplines where id = ${id} and user_id = ${user.id}`;
+  const [s] = await sql`select * from streaks where id = ${id}`;
   if (!s) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const streak = currentStreakDays(s.start_date);
   const newMax = Math.max(s.max_streak, streak);
 
   const [updated] = await sql`
-    update disciplines set start_date = null, max_streak = ${newMax}
-    where id = ${id} and user_id = ${user.id}
+    update streaks set start_date = null, max_streak = ${newMax}
+    where id = ${id}
     returning *
   `;
 
   if (streak > 0 && s.start_date) {
     await sql`
-      insert into reset_log (discipline_id, streak_reached, note, run_start)
+      insert into reset_log (streak_id, streak_reached, note, run_start)
       values (${id}, ${streak}, ${note}, ${s.start_date})
     `;
     const [bumped] = await sql`
-      update disciplines set reset_count = reset_count + 1
+      update streaks set reset_count = reset_count + 1
       where id = ${id} returning *
     `;
     return NextResponse.json(bumped);

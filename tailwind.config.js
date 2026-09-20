@@ -14,8 +14,8 @@ module.exports = {
         gold: "#E0A82E",
       },
       fontFamily: {
-        sans: ["var(--font-sora)", "system-ui", "sans-serif"],
-        mono: ["var(--font-jet)", "ui-monospace", "monospace"],
+        sans: ["var(--font-roboto-mono)", "ui-monospace", "monospace"],
+        mono: ["var(--font-roboto-mono)", "ui-monospace", "monospace"],
       },
     },
   },

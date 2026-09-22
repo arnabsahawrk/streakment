@@ -49,3 +49,24 @@ Keep the streakment alive. · <a href="https://streakment.vercel.app" style="col
 </p>
 </td></tr></table></td></tr></table></body></html>`;
 }
+
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** The one details block every email shares below its headline, so a
+ *  glance at the inbox is enough to know exactly which streakment it's
+ *  about without opening the app. */
+export function streakDetailsBlock(
+  s: { name: string; why_note: string; reset_count: number },
+  levelLabel: string,
+  levelValue: string
+): string {
+  const row = (label: string, value: string, first = false) => `<tr><td style="padding:10px 0;color:#A79C8C;font-size:11px;text-transform:uppercase;letter-spacing:1px;width:90px;vertical-align:top;${first ? "" : "border-top:1px solid #2E2620"}">${label}</td><td style="padding:10px 0;color:#F2ECE3;font-size:14px;line-height:1.5;${first ? "" : "border-top:1px solid #2E2620"}">${value}</td></tr>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;border-top:1px solid #2E2620;border-bottom:1px solid #2E2620">
+${row("Streak", esc(s.name), true)}
+${row("Why", esc(s.why_note))}
+${row("Resets", String(s.reset_count))}
+${row(levelLabel, levelValue)}
+</table>`;
+}

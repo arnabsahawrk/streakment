@@ -1,10 +1,10 @@
-export type StreakKind = "ascent" | "sprint";
+export type StreakType = "legend" | "challenge";
 
 export interface Streak {
   id: string;
   name: string;
   why_note: string;
-  kind: StreakKind;
+  type: StreakType;
   goal_days: number | null;
   start_date: string | null;
   max_streak: number;

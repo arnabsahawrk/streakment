@@ -3,7 +3,7 @@
  *  writing one of these is a quick note, not an essay. */
 export const LIMITS = {
   name: 80,
-  why: 300,
+  why: 800,
   closingNote: 300,
   resetNote: 200,
 } as const;

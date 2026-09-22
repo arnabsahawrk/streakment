@@ -12,6 +12,21 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Phone polish: no grey flash on tap, no double-tap zoom delay on
+   buttons/links, and padding that respects the notch/home-indicator
+   safe areas when installed as a standalone app. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+a {
+  touch-action: manipulation;
+}
+body {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* Scrollbars hidden everywhere, scrolling untouched: wheel, touch and
    keyboard all still work. scrollbar-width covers Firefox,
    -ms-overflow-style old Edge, ::-webkit-scrollbar Safari and Chrome
@@ -43,6 +58,12 @@ body::-webkit-scrollbar,
   to   { opacity: 1; transform: translateY(0); }
 }
 .sm-rise { animation: sm-rise 0.35s ease-out both; }
+
+@keyframes sm-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.sm-fade { animation: sm-fade 0.2s ease-out both; }
 
 @keyframes sm-flicker {
   0%, 100% { opacity: 1; }

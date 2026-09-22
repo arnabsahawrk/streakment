@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import confetti from "canvas-confetti";
-import { Route, History, Flag, Bell, BellOff } from "lucide-react";
+import { Route, BookOpen, Flag, Bell, BellOff } from "lucide-react";
 import Tooltip from "./Tooltip";
 import ProgressRing from "./ProgressRing";
 import StreakCounter from "./StreakCounter";
@@ -36,8 +36,8 @@ export default function StreakCard({
 
   const hitMilestone = useMemo(() => {
     if (v.isPaused || v.days <= 0) return false;
-    return v.isSprint ? v.days === v.goalDays : TIERS.some((t) => t.min === v.days);
-  }, [v.isPaused, v.isSprint, v.days, v.goalDays]);
+    return v.isChallenge ? v.days === v.goalDays : TIERS.some((t) => t.min === v.days);
+  }, [v.isPaused, v.isChallenge, v.days, v.goalDays]);
 
   useEffect(() => {
     if (!hitMilestone) return;
@@ -63,12 +63,12 @@ export default function StreakCard({
         body: body ? JSON.stringify(body) : undefined,
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "That didn't go through.");
+      if (!res.ok) throw new Error(data?.error || "Didn't go through.");
       setResetOpen(false);
       setArchiveOpen(false);
       onChange();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "That didn't go through.");
+      setErr(e instanceof Error ? e.message : "Didn't go through.");
     } finally {
       setBusy(null);
     }
@@ -97,7 +97,7 @@ export default function StreakCard({
     <motion.div
       animate={pulse ? { scale: [1, 1.02, 1] } : { scale: 1 }}
       transition={{ duration: 0.7, ease: "easeOut" }}
-      className="relative overflow-hidden rounded-2xl border bg-ash-raised px-6 pb-5 pt-6"
+      className="relative overflow-hidden rounded-2xl border bg-ash-raised px-4 pb-5 pt-6 sm:px-6"
       style={{ borderColor: v.isFinished ? `${GOLD}66` : "#2E2620" }}
     >
       <div
@@ -108,7 +108,7 @@ export default function StreakCard({
 
       <div className="relative flex flex-col items-center text-center">
         <h3 className="break-words text-lg font-semibold">{streak.name}</h3>
-        <p className="prose-text mt-1 max-w-xs break-words text-xs text-paper-dim">
+        <p className="mt-1 max-w-xs break-words text-center text-xs text-paper-dim">
           {streak.why_note}
         </p>
 
@@ -125,24 +125,15 @@ export default function StreakCard({
           </ProgressRing>
         </div>
 
-        {v.pill && (
-          <span
-            className="mt-4 rounded-full px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide"
-            style={{ color: v.color, backgroundColor: `${v.color}1A` }}
-          >
-            {v.pill}
-          </span>
-        )}
+        {v.line && <p className="mt-4 max-w-xs text-sm font-bold text-paper">{v.line}</p>}
 
-        <p className="mt-2 max-w-xs text-sm font-bold text-paper">{v.line}</p>
-
-        <p className="mt-3 text-xs text-paper-dim">
-          {v.showsBest && <>(Best streak: {best} {dayWord(best)})</>}
-          {!v.isPaused && v.isSprint && v.goalDays && !v.isFinished && (
-            <> ({v.goalDays - v.days} {dayWord(v.goalDays - v.days)} to go)</>
+        <p className="mt-2 text-xs text-paper-dim">
+          {v.showsBest && <>Best: {best} {dayWord(best)}</>}
+          {!v.isPaused && v.isChallenge && v.goalDays && !v.isFinished && (
+            <>{v.goalDays - v.days} {dayWord(v.goalDays - v.days)} to go</>
           )}
-          {!v.isPaused && !v.isSprint && v.upNext && (
-            <> ({v.upNext.min - v.days} {dayWord(v.upNext.min - v.days)} to {v.upNext.name})</>
+          {!v.isPaused && !v.isChallenge && v.upNext && (
+            <> · {v.upNext.min - v.days} to {v.upNext.name}</>
           )}
         </p>
 
@@ -172,31 +163,31 @@ export default function StreakCard({
 
         <div className="mt-5 flex w-full items-center justify-between border-t border-ember-line pt-3">
           <span className="text-[11px] text-paper-dim">
-            {v.isPaused ? "Paused" : `since ${formatDate(streak.start_date as string)}`}
+            {v.isPaused ? "Paused" : formatDate(streak.start_date as string)}
           </span>
           <div className="flex items-center gap-3 text-paper-dim">
-            <Tooltip label={emailEnabled ? "Milestone emails on for this one" : "Milestone emails muted for this one"}>
+            <Tooltip label={emailEnabled ? "Mute" : "Unmute"}>
               <button
                 onClick={toggleEmail}
                 disabled={busy === "mute"}
                 aria-label={emailEnabled ? "Mute emails for this streakment" : "Unmute emails for this streakment"}
-                className="hover:text-paper disabled:opacity-40"
+                className="p-1 hover:text-paper disabled:opacity-40"
               >
                 {emailEnabled ? <Bell size={16} /> : <BellOff size={16} />}
               </button>
             </Tooltip>
             <Tooltip label="Roadmap">
-              <button onClick={() => setRoadmapOpen(true)} aria-label="Open roadmap" className="hover:text-paper">
+              <button onClick={() => setRoadmapOpen(true)} aria-label="Open roadmap" className="p-1 hover:text-paper">
                 <Route size={16} />
               </button>
             </Tooltip>
-            <Tooltip label="History">
-              <button onClick={() => setHistoryOpen(true)} aria-label="Open history" className="hover:text-paper">
-                <History size={16} />
+            <Tooltip label="Journey">
+              <button onClick={() => setHistoryOpen(true)} aria-label="Open journey" className="p-1 hover:text-paper">
+                <BookOpen size={16} />
               </button>
             </Tooltip>
-            <Tooltip label="Finish and archive">
-              <button onClick={() => setArchiveOpen(true)} aria-label="Archive" className="hover:text-paper">
+            <Tooltip label="Archive">
+              <button onClick={() => setArchiveOpen(true)} aria-label="Archive" className="p-1 hover:text-paper">
                 <Flag size={16} />
               </button>
             </Tooltip>

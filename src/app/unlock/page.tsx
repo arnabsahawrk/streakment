@@ -2,12 +2,16 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { markTabUnlocked } from "@/lib/tabLock";
 
 export default function UnlockPage() {
   const router = useRouter();
   const [passcode, setPasscode] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [recovering, setRecovering] = useState(false);
+  const [recovered, setRecovered] = useState(false);
+  const [misses, setMisses] = useState(0);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -20,19 +24,34 @@ export default function UnlockPage() {
     });
     setBusy(false);
     if (res.ok) {
+      markTabUnlocked();
       router.replace("/");
       router.refresh();
     } else {
-      setErr("That passcode isn't right.");
+      setErr("Wrong passcode.");
       setPasscode("");
+      setMisses((m) => m + 1);
     }
+  }
+
+  async function forgot() {
+    setRecovering(true);
+    setErr(null);
+    const res = await fetch("/api/passcode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "recover" }),
+    });
+    setRecovering(false);
+    if (res.ok) setRecovered(true);
+    else setErr("Couldn't send it.");
   }
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
       <form onSubmit={submit} className="w-full max-w-xs">
         <p className="mb-3 font-mono text-xs uppercase tracking-[0.2em] text-paper-dim">Locked</p>
-        <h1 className="mb-6 text-2xl font-semibold">Enter your passcode</h1>
+        <h1 className="mb-6 text-2xl font-semibold">Enter passcode</h1>
         <input
           type="password"
           inputMode="numeric"
@@ -50,6 +69,23 @@ export default function UnlockPage() {
         >
           {busy ? "Checking…" : "Unlock"}
         </button>
+
+        {misses >= 3 && (
+          <div className="mt-5 text-center">
+            {recovered ? (
+              <p className="text-xs text-flame">Sent to email.</p>
+            ) : (
+              <button
+                type="button"
+                onClick={forgot}
+                disabled={recovering}
+                className="text-xs text-paper-dim underline-offset-2 hover:text-paper hover:underline disabled:opacity-40"
+              >
+                {recovering ? "Sending…" : "Forgot passcode?"}
+              </button>
+            )}
+          </div>
+        )}
       </form>
     </main>
   );

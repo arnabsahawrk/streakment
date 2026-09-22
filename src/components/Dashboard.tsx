@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Menu, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Menu, Unlock } from "lucide-react";
 import StreakCard from "./StreakCard";
 import Sidebar from "./Sidebar";
 import ArchiveSheet from "./ArchiveSheet";
@@ -9,6 +10,7 @@ import SettingsSheet from "./SettingsSheet";
 import Loading from "./Loading";
 import { AddStreakDialog } from "./Dialogs";
 import { currentStreakDays } from "@/lib/streak";
+import { isTabUnlocked, clearTabUnlocked } from "@/lib/tabLock";
 import type { Streak, UserSettings } from "@/lib/types";
 
 type Sheet = "archive" | "settings" | null;
@@ -18,11 +20,13 @@ export default function Dashboard({
 }: {
   settings: UserSettings;
 }) {
+  const router = useRouter();
   const [streaks, setStreaks] = useState<Streak[] | null>(null);
   const [settings, setSettings] = useState(initialSettings);
   const [menuOpen, setMenuOpen] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [adding, setAdding] = useState(false);
+  const [locking, setLocking] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/streaks");
@@ -32,6 +36,32 @@ export default function Dashboard({
 
   useEffect(() => { load(); }, [load]);
 
+  // A passcode is checked server-side by page.tsx, but that cookie lives
+  // for the whole browser session - reopening a closed tab would still
+  // pass it. This tab-scoped check is what actually asks again, the way
+  // closing and reopening a locked chat app does.
+  useEffect(() => {
+    if (initialSettings.has_passcode && !isTabUnlocked()) {
+      router.replace("/unlock");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function lockNow() {
+    setLocking(true);
+    try {
+      await fetch("/api/passcode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "lock" }),
+      });
+      clearTabUnlocked();
+      router.replace("/unlock");
+    } finally {
+      setLocking(false);
+    }
+  }
+
   // Shortest run first: the one closest to breaking sits at the top.
   const sorted = streaks
     ? [...streaks].sort(
@@ -40,35 +70,46 @@ export default function Dashboard({
     : [];
 
   return (
-    <main className="mx-auto max-w-2xl px-5 pb-32 pt-8 sm:pt-12">
+    <main className="mx-auto max-w-2xl px-4 pb-16 pt-6 sm:px-5 sm:pt-12">
       <header className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight">STREAKMENT</h1>
           <p className="mt-0.5 text-sm text-flame">Keep the streakment alive.</p>
         </div>
-        <button
-          onClick={() => setMenuOpen(true)}
-          aria-label="Open menu"
-          className="rounded-lg border border-ember-line p-2 text-paper-dim hover:text-paper"
-        >
-          <Menu size={18} />
-        </button>
+        <div className="flex items-center gap-2">
+          {settings.has_passcode && (
+            <button
+              onClick={lockNow}
+              disabled={locking}
+              aria-label="Lock"
+              className="rounded-lg border border-ember-line p-2 text-paper-dim hover:text-paper disabled:opacity-40"
+            >
+              <Unlock size={18} />
+            </button>
+          )}
+          <button
+            onClick={() => setMenuOpen(true)}
+            aria-label="Menu"
+            className="rounded-lg border border-ember-line p-2 text-paper-dim hover:text-paper"
+          >
+            <Menu size={18} />
+          </button>
+        </div>
       </header>
 
       {sorted.length > 0 && (
         <p className="mb-5 text-xs text-paper-dim">
-          {sorted.length} {sorted.length === 1 ? "streakment" : "streakments"} running
+          {sorted.length} {sorted.length === 1 ? "streakment" : "streakments"} alive
         </p>
       )}
 
       {streaks === null ? (
         <Loading />
       ) : sorted.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ember-line px-6 py-16 text-center">
+        <div className="rounded-2xl border border-dashed border-ember-line px-6 py-14 text-center">
           <p className="mb-1 text-lg font-semibold">Nothing lit yet</p>
-          <p className="prose-text mx-auto mb-6 max-w-xs text-sm text-paper-dim">
-            Start with one thing. Not the hardest thing — the one you&apos;re most ready
-            to hold.
+          <p className="mx-auto mb-6 max-w-xs text-sm text-paper-dim">
+            Start with one thing. Not the hardest — the one I&apos;m most ready for.
           </p>
           <button
             onClick={() => setAdding(true)}
@@ -85,18 +126,10 @@ export default function Dashboard({
         </div>
       )}
 
-      <button
-        onClick={() => setAdding(true)}
-        aria-label="New streakment"
-        className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-flame text-ash shadow-[0_8px_30px_rgba(255,107,53,0.35)] transition-transform active:scale-95 sm:bottom-10 sm:right-10"
-      >
-        <Plus size={26} />
-      </button>
-
       {menuOpen && (
         <Sidebar
           onClose={() => setMenuOpen(false)}
-          onOpen={(w) => setSheet(w)}
+          onOpen={(w) => (w === "add" ? setAdding(true) : setSheet(w))}
         />
       )}
       {adding && (

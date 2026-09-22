@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Streakment",
     short_name: "Streakment",
     description:
-      "Track the streakments you've made to yourself: milestones, heatmap and history.",
+      "Track the streakments I've made to myself: milestones and the journey.",
     start_url: "/",
     scope: "/",
     display: "standalone",

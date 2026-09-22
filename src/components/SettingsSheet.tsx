@@ -1,25 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Modal from "./Modal";
+import { markTabUnlocked } from "@/lib/tabLock";
 import type { UserSettings } from "@/lib/types";
 
 function Toggle({
-  label, hint, checked, onChange,
-}: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
+  label, checked, onChange,
+}: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className="flex w-full items-start justify-between gap-4 rounded-lg border border-ember-line bg-ash px-3 py-3 text-left"
+      className="flex w-full items-center justify-between gap-4 rounded-lg border border-ember-line bg-ash px-3 py-3 text-left"
     >
-      <span className="min-w-0">
-        <span className="block text-sm">{label}</span>
-        <span className="prose-text mt-0.5 block text-[11px] text-paper-dim">{hint}</span>
-      </span>
+      <span className="text-sm">{label}</span>
       <span
-        className={`mt-0.5 h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors ${checked ? "bg-flame" : "bg-ember-line"}`}
+        className={`h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors ${checked ? "bg-flame" : "bg-ember-line"}`}
       >
         <span className={`block h-4 w-4 rounded-full bg-paper transition-transform ${checked ? "translate-x-4" : ""}`} />
       </span>
@@ -30,7 +27,6 @@ function Toggle({
 export default function SettingsSheet({
   settings, onClose, onSaved,
 }: { settings: UserSettings; onClose: () => void; onSaved: (s: UserSettings) => void }) {
-  const router = useRouter();
   const [s, setS] = useState(settings);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -67,37 +63,22 @@ export default function SettingsSheet({
         body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Couldn't update the passcode.");
+      if (!res.ok) throw new Error(data?.error || "Couldn't update it.");
       const updated = { ...s, has_passcode: action !== "remove" };
       setS(updated); onSaved(updated); setCurrent(""); setNext("");
-      setMsg(action === "remove" ? "Passcode removed." : "Passcode saved.");
+      if (action !== "remove") markTabUnlocked();
+      setMsg(action === "remove" ? "Removed." : "Saved.");
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Couldn't update the passcode.");
+      setErr(e instanceof Error ? e.message : "Couldn't update it.");
     } finally { setBusy(false); }
-  }
-
-  async function lockNow() {
-    setBusy(true);
-    try {
-      await fetch("/api/passcode", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "lock" }),
-      });
-      router.replace("/unlock");
-      router.refresh();
-    } finally {
-      setBusy(false);
-    }
   }
 
   return (
     <Modal title="Settings" onClose={onClose}>
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-paper-dim">Email</p>
-      <div className="mb-5 flex flex-col gap-2">
+      <div className="mb-5">
         <Toggle
-          label="Milestone emails"
-          hint="A note when you cross a step on a Climb, or finish a Challenge. Checked once a day. Turning this off mutes every streakment; each one can also be muted on its own from its card."
+          label="Email Notifications"
           checked={s.email_milestones}
           onChange={(v) => patch({ email_milestones: v })}
         />
@@ -106,10 +87,8 @@ export default function SettingsSheet({
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-paper-dim">
         App passcode
       </p>
-      <p className="prose-text mb-2 text-[11px] text-paper-dim">
-        {s.has_passcode
-          ? "Set. You'll be asked for it each time the app is opened fresh."
-          : "Off. Anyone who opens the app sees everything — set one to lock it."}
+      <p className="mb-2 text-[11px] text-paper-dim">
+        {s.has_passcode ? "Set." : "Off — anyone who opens the app sees everything."}
       </p>
 
       {s.has_passcode ? (
@@ -144,13 +123,6 @@ export default function SettingsSheet({
               Remove
             </button>
           </div>
-          <button
-            onClick={lockNow}
-            disabled={busy}
-            className="mt-1 rounded-lg border border-ember-line py-2 text-sm text-paper-dim hover:border-flame hover:text-flame disabled:opacity-40"
-          >
-            Lock now
-          </button>
         </div>
       ) : (
         <div className="flex gap-2">

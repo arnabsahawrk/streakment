@@ -5,7 +5,7 @@ import Modal from "./Modal";
 import Loading from "./Loading";
 import { currentStreakDays } from "@/lib/streak";
 import { getTier } from "@/lib/tiers";
-import { formatDate, dayWord, kindLabel } from "@/lib/format";
+import { formatDate, dayWord, typeLabel } from "@/lib/format";
 import type { Streak, ResetEntry } from "@/lib/types";
 
 /** Every number and every break, for one streak — running or archived.
@@ -29,14 +29,14 @@ export default function HistorySheet({
 
   if (!data) {
     return (
-      <Modal title="History" onClose={onClose} wide>
-        <Loading label="Loading the history" />
+      <Modal title="Journey" onClose={onClose} wide>
+        <Loading label="Loading" />
       </Modal>
     );
   }
 
   const s = data.streak;
-  const isSprint = s.kind === "sprint" && !!s.goal_days;
+  const isChallenge = s.type === "challenge" && !!s.goal_days;
   // For an archived streak, every number is fixed at the moment it was
   // archived — it must never still be counting up to today.
   const asOf = s.archived ? s.archived_at ?? undefined : undefined;
@@ -47,8 +47,8 @@ export default function HistorySheet({
     <Modal title={s.name} onClose={onClose} wide>
       <dl className="mb-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
         <div>
-          <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Kind</dt>
-          <dd>{isSprint ? `${s.goal_days}-day ${kindLabel(true)}` : kindLabel(false)}</dd>
+          <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Type</dt>
+          <dd>{typeLabel(isChallenge)}{isChallenge && ` · ${s.goal_days} ${dayWord(s.goal_days ?? 0)}`}</dd>
         </div>
         <div>
           <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Started</dt>
@@ -59,22 +59,22 @@ export default function HistorySheet({
           <div className="col-span-2">
             <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Result</dt>
             <dd>
-              {isSprint
+              {isChallenge
                 ? days >= (s.goal_days ?? 0)
-                  ? `Reached the goal — ${s.goal_days} of ${s.goal_days} ${dayWord(s.goal_days ?? 0)}`
-                  : `Didn't reach the goal — ${days} of ${s.goal_days} ${dayWord(s.goal_days ?? 0)}`
-                : `Best streak: ${best} ${dayWord(best)} — reached ${getTier(best).name}`}
+                  ? `Reached — ${s.goal_days} of ${s.goal_days} ${dayWord(s.goal_days ?? 0)}`
+                  : `Not reached — ${days} of ${s.goal_days} ${dayWord(s.goal_days ?? 0)}`
+                : `Best: ${best} ${dayWord(best)} — reached ${getTier(best).name}`}
             </dd>
           </div>
         ) : (
           <>
             <div>
-              <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Current streak</dt>
+              <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Since</dt>
               <dd>{s.start_date ? formatDate(s.start_date) : "Paused"}</dd>
             </div>
-            {!isSprint && (
+            {!isChallenge && (
               <div>
-                <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Best streak</dt>
+                <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Best</dt>
                 <dd>{best} {dayWord(best)}</dd>
               </div>
             )}
@@ -82,7 +82,7 @@ export default function HistorySheet({
         )}
 
         <div>
-          <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Times reset</dt>
+          <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Resets</dt>
           <dd>{s.reset_count}</dd>
         </div>
       </dl>

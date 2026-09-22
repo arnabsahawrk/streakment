@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { isUnlocked } from "@/lib/session";
 
-/** One streak plus its reset history (which the heatmap and the history
- *  view both read from) in a single round trip. */
+/** One streak plus its reset history (read by both Roadmap and Journey). */
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }

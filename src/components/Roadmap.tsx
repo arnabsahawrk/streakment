@@ -18,7 +18,7 @@ function reachedIndex(days: number, paused: boolean) {
  *  have passed burns in its own tier colour, where you stand now pulses,
  *  and what's ahead stays readable but cold - the point is to see where
  *  this goes, not to hide it. */
-export function AscentRoadmap({ days, paused }: { days: number; paused: boolean }) {
+export function LegendRoadmap({ days, paused }: { days: number; paused: boolean }) {
   const current = reachedIndex(days, paused);
 
   return (
@@ -83,13 +83,10 @@ export function AscentRoadmap({ days, paused }: { days: number; paused: boolean 
                     className="rounded px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wide"
                     style={{ color: step.color, backgroundColor: `${step.color}1A` }}
                   >
-                    you are here
+                    here now
                   </span>
                 )}
               </div>
-              <p className={`mt-1 text-xs ${reached ? "font-medium text-paper" : "text-paper-dim"}`}>
-                {step.line}
-              </p>
             </motion.div>
           </li>
         );
@@ -98,9 +95,9 @@ export function AscentRoadmap({ days, paused }: { days: number; paused: boolean 
   );
 }
 
-/** A sprint has no ladder - just the distance. Rendered as lit stones so
+/** A challenge has no ladder - just the distance. Rendered as lit stones so
  *  progress is countable at a glance. */
-export function SprintRoadmap({
+export function ChallengeRoadmap({
   days,
   goal,
   paused,
@@ -118,9 +115,9 @@ export function SprintRoadmap({
     <div>
       <p className="mb-4 text-xs text-paper-dim">
         {complete
-          ? `You set ${goal} ${dayWord(goal)} and you got there.`
+          ? `Set ${goal} ${dayWord(goal)}. Reached it.`
           : paused
-            ? `Paused. ${goal} ${dayWord(goal)} from the day you begin again.`
+            ? `Paused. ${goal} ${dayWord(goal)} once begun.`
             : `${goal - done} ${dayWord(goal - done)} to go.`}
       </p>
 
@@ -134,7 +131,6 @@ export function SprintRoadmap({
                 initial={{ scale: 0.3, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: Math.min(i * 0.025, 0.5), duration: 0.25 }}
-                title={`Day ${i + 1}`}
                 className="flex h-7 w-7 items-center justify-center rounded-md border font-mono text-[10px]"
                 style={{
                   backgroundColor: filled ? `${color}26` : "transparent",

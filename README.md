@@ -4,14 +4,13 @@
 
 *Streakment* = **Streak** + **Commitment**.
 
-Streakment is a personal, installable web app for tracking the promises
-you've made to yourself. You start a streakment, and it counts the days.
-When you break it, you say so, write down what happened, and begin again
-when you're ready — not the same minute, not under pressure.
+Streakment tracks the promises I've made to myself. I start a streakment,
+and it counts the days. When I break it, I say so, write down what
+happened, and begin again when I'm ready — not the same minute, not under
+pressure.
 
-This is a single-user app, built for one person's own use. There's no
-sign-up and no accounts — just an optional passcode standing between
-anyone else and your data.
+Single-user, built for my own use only. No sign-up, no accounts — just an
+optional passcode standing between anyone else and my data.
 
 Live at **[streakment.vercel.app](https://streakment.vercel.app)**.
 
@@ -21,104 +20,75 @@ Live at **[streakment.vercel.app](https://streakment.vercel.app)**.
 
 ### Two ways to hold a streakment
 
-**Climb** — open-ended, no finish line. The day count climbs through ten
-milestones, each with its own name, colour and line:
+**Become Legend** — open-ended, no finish line. The day count climbs
+through ten named milestones (Begin, Commit, Control, Discipline,
+Consistent, Thrive, Strong, Dedicated, Master, Legend), each its own
+colour. The colours follow how metal actually behaves under heat: the
+early milestones run through the incandescence sequence a smith sees as
+iron warms — dull red, red, orange, yellow, near-white. From Dedicated
+onward they switch to tempering colours, the oxides steel takes on as it
+hardens. Legend leaves steel for gold.
 
-| Days | Milestone | What it says |
-|---:|---|---|
-| 0 | Day Zero | I can do this all day. |
-| 1–2 | Begin | I decided to change. |
-| 3–6 | Commit | I chose the better path. |
-| 7–14 | Control | I am learning to control myself. |
-| 15–20 | Discipline | I am building a new me. |
-| 21–29 | Consistent | This is becoming who I am. |
-| 30–59 | Thrive | My old habits are losing their hold. |
-| 60–89 | Strong | I am no longer who I used to be. |
-| 90–179 | Dedicated | I live by my streakment. |
-| 180–364 | Master | Discipline has become part of me. |
-| 365+ | Legend | I became the person I promised to become. |
+**Accept Challenge** — fixed length, 1 to 365 days. Pick three days to
+break a loop, or thirty to prove something. It completes when I reach the
+number and offers to finish and archive. A challenge never shows a "best
+streak" — I either got there or I didn't, and a personal best is noise.
 
-The colours aren't arbitrary. They follow how metal actually behaves under
-heat: the early milestones run through the incandescence sequence a smith
-sees as iron warms — dull red, red, orange, yellow, near-white — matching
-the struggle in those lines. From Dedicated onward they switch to tempering
-colours, the oxides steel takes on as it hardens, matching the shift from
-striving to settled identity. Legend leaves steel for gold.
+### Resetting doesn't restart me
 
-**Challenge** — fixed length, 1 to 365 days. Pick three days to break a
-loop, or thirty to prove something. It completes when you reach the
-number, turns gold, and offers to finish and archive. A Challenge never
-shows a "best streak" — you either got there or you didn't, and a personal
-best is noise.
+When I reset, the streak **pauses** instead of immediately counting
+again. Nothing runs until I tap **Begin**. That's deliberate: a slip on
+Tuesday shouldn't force me back on the clock the same day.
 
-### Resetting doesn't restart you
-
-When you reset, the streak **pauses** instead of immediately counting
-again. Nothing runs until you tap **Begin**. That's deliberate: a slip on
-Tuesday shouldn't force you back on the clock the same day, and pretending
-otherwise is how people quit entirely.
-
-Your best streak is banked before the reset, so breaking never erases what
-you already did.
+My best streak is banked before the reset, so breaking never erases what
+I already did.
 
 ### The roadmap
 
-Its own icon on every running streakment. The full climb (or the
-challenge ahead) as a rope of lit and unlit stations: everything you've
-passed burns in its colour, where you stand now pulses, and what's ahead
-stays readable but cold. The heatmap of every day so far lives here too.
-It only ever shows while a streakment is running — once one is archived,
-there's no more road ahead to draw, so History takes its place.
+Its own icon on every running streakment — the full climb (or the
+challenge ahead) as a rope of lit and unlit stations. Everything passed
+burns in its colour, where I stand now pulses, and what's ahead stays
+readable but cold. It only shows while a streakment is running; an
+archived one shows Journey instead, since there's no more road left to
+draw.
 
-### The heatmap
+### Journey
 
-A compact, GitHub-style grid: one small square per day, arranged in
-weeks, going back as far as the streakment does. Held days sit in the
-milestone colour, broken days sit in red, and paused stretches sit empty.
-Month labels along the top give you the date at a glance — there's no
-hover needed.
+Its own icon too — alongside Roadmap on a running streakment, by itself
+on an archived one. The numbers (type, when it started, current or best
+streak, resets) and every individual break, each with whatever I wrote
+about it at the time.
 
-Nothing extra is stored to make this work. Every run is already bounded by
-its start and its reset, so the whole record is reconstructed from data
-the app keeps anyway.
+### Notifications
 
-### History
+Crossing a milestone or finishing a challenge sends an email — a
+different line for each achievement, not a generic template, checked once
+a day (streaks are computed on read, so nothing happens at midnight by
+itself). There's one switch for all of it in Settings, and a second,
+smaller one on each streakment's own card — muting one doesn't touch the
+others. Every send is recorded with a uniqueness guarantee, so a retry or
+an overlapping run can never send the same congratulation twice.
 
-Its own icon too — on a running streakment, alongside Roadmap; on an
-archived one, by itself. The numbers (kind, when it started, current or
-best streak, times reset) and every individual break, each with whatever
-you wrote about it at the time.
-
-### Milestone emails
-
-When you cross a milestone or finish a Challenge, you get an email. This
-is checked once a day — the app calculates streaks when you open it, so
-nothing happens at midnight by itself, and the free hosting tier runs
-scheduled jobs once daily. You get the email on the day you cross, not the
-minute.
-
-There's one switch for all of it in Settings, and a second, smaller one on
-each streakment's own card — muting a single streakment doesn't touch the
-others. Every send is recorded, and the record has a uniqueness guarantee,
-so a retry or an overlapping run can never send you the same
-congratulation twice.
-
-### Your archive
+### The archive
 
 Finishing a streakment doesn't delete it. The archive keeps what it was,
-why you started, when, how far it got (or whether it met its goal), how
-many times it broke, your closing note, and its full history one tap away.
+why it started, when, how far it got (or whether it met its goal), how
+often it broke, the closing note, and its full journey one tap away.
 
 ### Everything else
 
-- **An optional passcode.** The only gate in the app — set one in
-  Settings and you're asked for it each time the app is opened fresh. It
-  can be changed (which checks the old one first) or removed, and there's
-  a **Lock now** button for stepping away from an unlocked device.
+- **An optional passcode.** The only gate in the app. It can be changed
+  (checking the old one first) or removed, and a tap on the header's lock
+  icon locks it again immediately. Forgot it? "Forgot passcode?" on the
+  lock screen emails it back — the passcode is encrypted, not hashed, so
+  it can be recovered rather than only ever reset.
+- **Locks itself per tab.** Closing the tab and reopening the app asks
+  for the passcode again, the way a locked chat app does — the browser
+  session cookie alone would otherwise leave a reopened tab still
+  unlocked.
 - **Installable and offline-capable**, in Roboto Mono throughout, with
-  scrollbars hidden and body text left-aligned rather than justified.
-- **Built for old devices too** — pinned to Next.js 15 and Tailwind 3 and
-  compiled for Safari 12, so it works on phones a newer stack drops.
+  scrollbars hidden and safe-area padding for notches and home
+  indicators on a phone.
 
 ---
 
@@ -131,17 +101,19 @@ once in its SQL Editor. Keep the pooled connection string.
 
 ### 2. Email
 
-Create a free [Brevo](https://brevo.com) account, validate your sender
-address, and make an API key under *SMTP & API*. Brevo is used rather than
-Resend because it sends from a validated address without requiring you to
-own and configure a domain, and its free tier (300/day) doesn't expire.
-Milestone emails always go to the one address set in `src/app/api/cron/daily/route.ts`.
+Create a free [Brevo](https://brevo.com) account, validate a sender
+address, and make an API key under *SMTP & API*. Notification emails
+always go to the one address set in `src/app/api/cron/daily/route.ts`
+(and in the passcode-recovery route).
 
 ### 3. Environment
 
-Copy `.env.example` to `.env.local` and fill it in. `CRON_SECRET` can be
-any long random string — `openssl rand -hex 32` works well. Set the same
-variables in Vercel → Settings → Environment Variables.
+Copy `.env.example` to `.env.local` and fill it in. `CRON_SECRET` and
+`PASSCODE_KEY` can be any long random string — `openssl rand -hex 32`
+works well for both. `PASSCODE_KEY` encrypts the passcode at rest;
+changing it after a passcode is set locks it out permanently, so set it
+once and leave it. Set the same variables in Vercel → Settings →
+Environment Variables.
 
 ### 4. Run
 
@@ -150,8 +122,7 @@ npm install
 npm run dev
 ```
 
-Open the app once and set a passcode from the menu → Settings, if you
-want one.
+Open the app once and set a passcode from the menu → Settings, if wanted.
 
 ### 5. Deploy
 
@@ -164,20 +135,17 @@ Push to GitHub, import in Vercel, add the environment variables, deploy.
 
 ```
 src/
-  middleware.ts (removed) — the passcode check now lives in page.tsx
-                             and in every API route, via isUnlocked()
   lib/
-    session.ts          Settings + the passcode gate; the only security
-                         boundary in the app
-    streak.ts           Day maths and display caps
-    tiers.ts            The ten milestones
-    progress.ts         One view model shared by the card and the roadmap
-    heatmap.ts          Rebuilds every day from run boundaries
-    email.ts            Brevo
-    limits.ts           Text ceilings, mirrored by database constraints
-  components/           Card, roadmap, heatmap, history, dialogs, sheets
-  app/api/              streaks/, settings/, passcode/, cron/daily sends
-                         milestone emails
+    session.ts     Settings, passcode encryption, the passcode gate -
+                    the only security boundary in the app
+    streak.ts       Day maths and display caps
+    tiers.ts        The ten milestone names and colours
+    progress.ts     One view model shared by the card and the roadmap
+    email.ts        Brevo
+    limits.ts       Text ceilings, mirrored by database constraints
+  components/       Card, roadmap, journey, dialogs, sheets
+  app/api/          streaks/, settings/, passcode/, cron/daily sends
+                     notifications
 ```
 
 Three ideas hold the whole thing together:
@@ -192,9 +160,9 @@ Three ideas hold the whole thing together:
    draws, so the card and the roadmap can't disagree.
 
 Limits are enforced in the database *and* the API, so a bug in one layer
-can't bypass the other. And because this is single-user, there's no
-account system anywhere in the stack — `user_settings` is one guaranteed
-row, and every streak belongs to whoever has the passcode.
+can't bypass the other. And since this is single-user, there's no account
+system anywhere in the stack — `user_settings` is one guaranteed row, and
+every streak just belongs to whoever has the passcode.
 
 ---
 

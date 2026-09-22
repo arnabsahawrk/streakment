@@ -25,14 +25,15 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-6"
+      className="sm-fade fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-6"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`no-scrollbar max-h-[88vh] w-full overflow-y-auto rounded-t-2xl border border-ember-line bg-ash-raised p-6 sm-rise sm:rounded-2xl ${
+        className={`no-scrollbar max-h-[88vh] w-full overflow-y-auto rounded-t-2xl border border-ember-line bg-ash-raised p-5 sm-rise sm:rounded-2xl sm:p-6 ${
           wide ? "sm:max-w-lg" : "sm:max-w-sm"
         }`}
+        style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom, 0px))" }}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <h2 className="break-words text-lg font-semibold">{title}</h2>

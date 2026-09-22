@@ -18,9 +18,10 @@ create extension if not exists "pgcrypto";
 
 create table if not exists user_settings (
   singleton        boolean primary key default true check (singleton),
-  -- Optional app passcode. Null = off. Stored as a SHA-256 hash,
-  -- never in the clear.
-  passcode_hash    text,
+  -- Optional app passcode, reversibly encrypted (not hashed) with
+  -- PASSCODE_KEY, so a forgotten passcode can be decrypted and
+  -- emailed back rather than only ever reset. Null = off.
+  passcode_enc     text,
   -- Milestone-email opt-out, global. A streak can also be muted
   -- individually — see streaks.email_enabled below. Both must be
   -- true for that streak's emails to send.
@@ -37,10 +38,10 @@ insert into user_settings (singleton) values (true) on conflict do nothing;
 -- ------------------------------------------------------------
 --  2. Streaks.
 --
---  kind = 'ascent' : open-ended climb ("Climb" in the UI), goal_days
---                    must be null
---  kind = 'sprint' : fixed-length ("Challenge" in the UI), goal_days
---                    required (1..365)
+--  type = 'legend'    : open-ended, "Become Legend" in the UI,
+--                        goal_days must be null
+--  type = 'challenge' : fixed-length, "Accept Challenge" in the UI,
+--                        goal_days required (1..365)
 --
 --  start_date null  = paused (reset, not yet restarted)
 --  Current streak is always derived from start_date, never stored,
@@ -52,7 +53,7 @@ create table if not exists streaks (
   id             uuid primary key default gen_random_uuid(),
   name           text not null,
   why_note       text not null,
-  kind           text not null default 'ascent',
+  type           text not null default 'legend',
   goal_days      integer,
   start_date     timestamptz default now(),
   max_streak     integer not null default 0,
@@ -66,27 +67,25 @@ create table if not exists streaks (
   created_at     timestamptz not null default now(),
 
   constraint name_len   check (char_length(name) between 1 and 80),
-  constraint why_len    check (char_length(why_note) between 1 and 300),
+  constraint why_len    check (char_length(why_note) between 1 and 800),
   constraint reason_len check (archive_reason is null or char_length(archive_reason) <= 300),
 
-  constraint kind_valid check (kind in ('ascent', 'sprint')),
+  constraint type_valid check (type in ('legend', 'challenge')),
   -- The two shapes are mutually exclusive, enforced here rather
   -- than trusted to the API alone. The explicit `is not null`
-  -- matters: without it, a sprint row with a null goal_days makes
+  -- matters: without it, a challenge row with a null goal_days makes
   -- the BETWEEN evaluate to unknown, and Postgres passes a CHECK
   -- whose result is unknown rather than failing it - so a goalless
-  -- sprint would slip straight through.
-  constraint goal_matches_kind check (
-    (kind = 'ascent' and goal_days is null) or
-    (kind = 'sprint' and goal_days is not null and goal_days between 1 and 365)
+  -- challenge would slip straight through.
+  constraint goal_matches_type check (
+    (type = 'legend' and goal_days is null) or
+    (type = 'challenge' and goal_days is not null and goal_days between 1 and 365)
   )
 );
 create index if not exists streaks_archived_idx on streaks(archived);
 
 -- ------------------------------------------------------------
---  3. Reset history. run_start + reset_at bound each broken run,
---     which is also what lets the heatmap reconstruct every held
---     and broken day without storing a row per day.
+--  3. Reset history. run_start + reset_at bound each broken run.
 -- ------------------------------------------------------------
 
 create table if not exists reset_log (
@@ -112,11 +111,11 @@ create table if not exists email_log (
   id         uuid primary key default gen_random_uuid(),
   streak_id  uuid references streaks(id) on delete cascade,
   kind       text not null,
-  -- The day number crossed (or the sprint length, for sprint_complete).
+  -- The day number crossed (or the challenge length, for challenge_complete).
   marker     text not null,
   sent_at    timestamptz not null default now(),
 
-  constraint email_kind_valid check (kind in ('milestone', 'sprint_complete'))
+  constraint email_kind_valid check (kind in ('created', 'milestone', 'challenge_complete'))
 );
 create unique index if not exists email_log_once_idx
   on email_log(coalesce(streak_id::text, ''), kind, marker);

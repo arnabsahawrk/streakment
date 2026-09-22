@@ -2,8 +2,8 @@ const DAY_MS = 86_400_000;
 
 /** Display caps. The count keeps running until archived, but stops
  *  rendering as an ever-growing number past these. */
-export const SPRINT_CAP = 365;
-export const ASCENT_CAP = 999;
+export const CHALLENGE_CAP = 365;
+export const LEGEND_CAP = 999;
 
 /** Streaks are derived from start_date, never stored as a counter, so
  *  nothing needs a background job just to make the numbers move.

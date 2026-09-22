@@ -22,15 +22,15 @@ export function ResetDialog({
     <Modal title="Reset this streak?" onClose={onCancel}>
       <p className="mb-4 text-sm text-paper-dim">
         Day {streak} ends here.{" "}
-        {streak > 0 ? "It's kept as your best if it's a new one. " : ""}
-        Nothing counts again until you tap Begin — whenever that is.
+        {streak > 0 ? "Best is kept if it's new. " : ""}
+        Nothing counts again until I tap Begin.
       </p>
       <label className="mb-1.5 block text-xs text-paper-dim">What happened? (optional)</label>
       <textarea
         value={note}
         onChange={(e) => setNote(e.target.value.slice(0, LIMITS.resetNote))}
         rows={3}
-        placeholder="Only you will read this. Being honest here helps."
+        placeholder="Only I'll read this. Honesty helps."
         className="w-full resize-none rounded-lg border border-ember-line bg-ash px-3 py-2.5 text-sm focus:border-flame focus:outline-none"
       />
       <div className="mt-1 flex justify-end">
@@ -70,8 +70,8 @@ export function ArchiveDialog({
   return (
     <Modal title="Finish and archive?" onClose={onCancel}>
       <p className="mb-4 text-sm text-paper-dim">
-        It stops counting and moves into your archive with everything attached —
-        the history, the numbers. This can&apos;t be undone.
+        Stops counting and moves to the archive — history and numbers attached.
+        Can&apos;t be undone.
       </p>
 
       <label className="mb-1.5 block text-xs text-paper-dim">Closing note</label>
@@ -79,7 +79,7 @@ export function ArchiveDialog({
         value={reason}
         onChange={(e) => setReason(e.target.value.slice(0, LIMITS.closingNote))}
         rows={3}
-        placeholder="How did this end, and what are you taking from it?"
+        placeholder="How did this end, and what am I taking from it?"
         className="w-full resize-none rounded-lg border border-ember-line bg-ash px-3 py-2.5 text-sm focus:border-flame focus:outline-none"
       />
       <div className="mt-1 flex justify-end">
@@ -120,13 +120,13 @@ export function AddStreakDialog({
 }) {
   const [name, setName] = useState("");
   const [why, setWhy] = useState("");
-  const [kind, setKind] = useState<"ascent" | "sprint">("ascent");
+  const [type, setType] = useState<"legend" | "challenge">("legend");
   const [goal, setGoal] = useState("3");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const goalNum = Number(goal);
-  const goalOk = kind === "ascent" || (Number.isInteger(goalNum) && goalNum >= 1 && goalNum <= 365);
+  const goalOk = type === "legend" || (Number.isInteger(goalNum) && goalNum >= 1 && goalNum <= 365);
   const canSubmit = name.trim() && why.trim() && goalOk;
 
   async function submit() {
@@ -140,8 +140,8 @@ export function AddStreakDialog({
         body: JSON.stringify({
           name: name.trim(),
           why_note: why.trim(),
-          kind,
-          goal_days: kind === "sprint" ? goalNum : null,
+          type,
+          goal_days: type === "challenge" ? goalNum : null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -156,7 +156,7 @@ export function AddStreakDialog({
 
   return (
     <Modal title="New streakment" onClose={onClose}>
-      <label className="mb-1.5 block text-xs text-paper-dim">What are you committing to</label>
+      <label className="mb-1.5 block text-xs text-paper-dim">What am I committing to</label>
       <input
         autoFocus
         value={name}
@@ -166,7 +166,7 @@ export function AddStreakDialog({
       />
       <div className="mt-1 flex justify-end"><CharCount value={name} max={LIMITS.name} /></div>
 
-      <label className="mb-1.5 mt-3 block text-xs text-paper-dim">Why</label>
+      <label className="mb-1.5 mt-3 block text-xs text-paper-dim">Why note</label>
       <textarea
         value={why}
         onChange={(e) => setWhy(e.target.value.slice(0, LIMITS.why))}
@@ -178,35 +178,35 @@ export function AddStreakDialog({
         <CharCount value={why} max={LIMITS.why} />
       </div>
 
-      <label className="mb-2 mt-4 block text-xs text-paper-dim">How are you holding it</label>
+      <label className="mb-2 mt-4 block text-xs text-paper-dim">How am I holding it</label>
       <div className="mb-3 grid grid-cols-2 gap-2">
         <button
           type="button"
-          onClick={() => setKind("ascent")}
+          onClick={() => setType("legend")}
           className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
-            kind === "ascent" ? "border-flame bg-flame/10" : "border-ember-line hover:border-paper-dim"
+            type === "legend" ? "border-flame bg-flame/10" : "border-ember-line hover:border-paper-dim"
           }`}
         >
-          <span className="block text-sm font-semibold">Climb</span>
+          <span className="block text-sm font-semibold">Become Legend</span>
           <span className="mt-0.5 block text-[11px] leading-snug text-paper-dim">
-            No finish line. Climb to Legend.
+            No finish line.
           </span>
         </button>
         <button
           type="button"
-          onClick={() => setKind("sprint")}
+          onClick={() => setType("challenge")}
           className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
-            kind === "sprint" ? "border-flame bg-flame/10" : "border-ember-line hover:border-paper-dim"
+            type === "challenge" ? "border-flame bg-flame/10" : "border-ember-line hover:border-paper-dim"
           }`}
         >
-          <span className="block text-sm font-semibold">Challenge</span>
+          <span className="block text-sm font-semibold">Accept Challenge</span>
           <span className="mt-0.5 block text-[11px] leading-snug text-paper-dim">
-            Fixed length. Done when you arrive.
+            Fixed length.
           </span>
         </button>
       </div>
 
-      {kind === "sprint" && (
+      {type === "challenge" && (
         <div className="mb-2">
           <div className="mb-2 flex gap-2">
             {[3, 7, 21, 30].map((p) => (
@@ -232,7 +232,7 @@ export function AddStreakDialog({
             aria-label="Challenge length in days"
             className="w-full rounded-lg border border-ember-line bg-ash px-3 py-2.5 text-sm focus:border-flame focus:outline-none"
           />
-          {!goalOk && <p className="mt-1.5 text-[11px] text-red-400">A whole number between 1 and 365.</p>}
+          {!goalOk && <p className="mt-1.5 text-[11px] text-red-400">A whole number, 1 to 365.</p>}
         </div>
       )}
 

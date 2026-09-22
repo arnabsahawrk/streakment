@@ -1,20 +1,20 @@
 "use client";
 
-import { Flame, X, Archive, Settings as Cog } from "lucide-react";
+import { Flame, X, Plus, Archive, Settings as Cog, FileText } from "lucide-react";
 
 export default function Sidebar({
   onClose,
   onOpen,
 }: {
   onClose: () => void;
-  onOpen: (what: "archive" | "settings") => void;
+  onOpen: (what: "add" | "archive" | "settings") => void;
 }) {
   return (
     <div className="fixed inset-0 z-40 flex" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/70" />
+      <div className="sm-fade absolute inset-0 bg-black/70" />
       <aside
         onClick={(e) => e.stopPropagation()}
-        className="no-scrollbar relative ml-auto flex h-full w-72 flex-col overflow-y-auto border-l border-ember-line bg-ash-raised p-5 sm-rise"
+        className="no-scrollbar relative ml-auto flex h-full w-72 max-w-[85vw] flex-col overflow-y-auto border-l border-ember-line bg-ash-raised p-5 sm-rise"
       >
         <div className="mb-6 flex items-start justify-between">
           <div className="flex items-center gap-2.5">
@@ -26,13 +26,14 @@ export default function Sidebar({
               <p className="text-[10px] text-paper-dim">Streak + Commitment</p>
             </div>
           </div>
-          <button onClick={onClose} aria-label="Close menu" className="text-paper-dim hover:text-paper">
+          <button onClick={onClose} aria-label="Close" className="text-paper-dim hover:text-paper">
             <X size={18} />
           </button>
         </div>
 
         <nav className="flex flex-col gap-1">
           {[
+            { key: "add" as const, icon: Plus, label: "Add" },
             { key: "archive" as const, icon: Archive, label: "Archive" },
             { key: "settings" as const, icon: Cog, label: "Settings" },
           ].map(({ key, icon: Icon, label }) => (
@@ -44,6 +45,14 @@ export default function Sidebar({
               <Icon size={16} /> {label}
             </button>
           ))}
+          <a
+            href="https://app.notion.com/p/arnabsahawrk/COMMITMENT-3aeb14a91aeb80c5b8d8cd3fa66023ee?source=copy_link"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-paper-dim transition-colors hover:bg-ash hover:text-paper"
+          >
+            <FileText size={16} /> Read Commitment
+          </a>
         </nav>
 
         <div className="mt-auto border-t border-ember-line pt-4 text-center">

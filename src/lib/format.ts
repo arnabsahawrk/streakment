@@ -21,9 +21,8 @@ export function dayWord(n: number): string {
   return n <= 1 ? "day" : "days";
 }
 
-/** The simple, user-facing name for each streak shape. Internally these
- *  stay "ascent"/"sprint" (matching the database and the type system) —
- *  only the label shown to a person changes. */
-export function kindLabel(isSprint: boolean): string {
-  return isSprint ? "Challenge" : "Climb";
+/** The name shown for each streak shape, used everywhere: the type
+ *  picker, badges, and status lines. */
+export function typeLabel(isChallenge: boolean): string {
+  return isChallenge ? "Accept Challenge" : "Become Legend";
 }

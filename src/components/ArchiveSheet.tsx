@@ -6,13 +6,13 @@ import HistorySheet from "./HistorySheet";
 import Loading from "./Loading";
 import { currentStreakDays } from "@/lib/streak";
 import { getTier } from "@/lib/tiers";
-import { formatDate, dayWord, kindLabel } from "@/lib/format";
+import { formatDate, dayWord, typeLabel } from "@/lib/format";
 import type { Streak } from "@/lib/types";
 
-/** Everything the app knows about a finished streakment, kept rather than
- *  discarded: what it was, why it started, how far it got, how often it
- *  broke, and how it ended. No roadmap here — that's only for a streak
- *  that's still running — but the full history stays one tap away. */
+/** Everything the app keeps about a finished streakment: what it was,
+ *  why it started, how far it got, how often it broke, and how it
+ *  ended. No roadmap here — that's only for a streak that's still
+ *  running — but the full journey stays one tap away. */
 export default function ArchiveSheet({ onClose }: { onClose: () => void }) {
   const [items, setItems] = useState<Streak[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -28,16 +28,15 @@ export default function ArchiveSheet({ onClose }: { onClose: () => void }) {
     <>
       <Modal title="Archive" onClose={onClose} wide>
         {items === null ? (
-          <Loading label="Loading the archive" />
+          <Loading label="Loading" />
         ) : items.length === 0 ? (
-          <p className="prose-text text-sm text-paper-dim">
-            Nothing archived yet. When you finish a streakment it lands here with its
-            whole story attached.
+          <p className="text-sm text-paper-dim">
+            Nothing archived yet. Finished streakments land here, whole story attached.
           </p>
         ) : (
           <ul className="flex flex-col gap-5">
             {items.map((s) => {
-              const isSprint = s.kind === "sprint" && !!s.goal_days;
+              const isChallenge = s.type === "challenge" && !!s.goal_days;
               const finalRun = s.archived_at
                 ? currentStreakDays(s.start_date, s.archived_at)
                 : 0;
@@ -47,11 +46,11 @@ export default function ArchiveSheet({ onClose }: { onClose: () => void }) {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <h3 className="break-words font-semibold">{s.name}</h3>
                     <span className="shrink-0 rounded-full border border-ember-line px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-paper-dim">
-                      {isSprint ? `${s.goal_days}-day ${kindLabel(true)}` : kindLabel(false)}
+                      {typeLabel(isChallenge)}
                     </span>
                   </div>
 
-                  <p className="prose-text mt-1.5 text-xs text-paper-dim">{s.why_note}</p>
+                  <p className="mt-1.5 text-center text-xs text-paper-dim">{s.why_note}</p>
 
                   <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                     <div>
@@ -62,24 +61,24 @@ export default function ArchiveSheet({ onClose }: { onClose: () => void }) {
                       <dt className="text-[10px] uppercase tracking-wide text-paper-dim">Archived</dt>
                       <dd>{s.archived_at ? formatDate(s.archived_at) : "—"}</dd>
                     </div>
-                    {!isSprint && (
+                    {!isChallenge && (
                       <div className="col-span-2">
-                        <dt className="text-[10px] uppercase tracking-wide text-paper-dim">Best streak</dt>
+                        <dt className="text-[10px] uppercase tracking-wide text-paper-dim">Best</dt>
                         <dd>{best} {dayWord(best)} — reached {getTier(best).name}</dd>
                       </div>
                     )}
-                    {isSprint && (
+                    {isChallenge && (
                       <div className="col-span-2">
                         <dt className="text-[10px] uppercase tracking-wide text-paper-dim">Result</dt>
                         <dd>
                           {finalRun >= (s.goal_days ?? 0)
-                            ? `Reached the goal — ${s.goal_days} of ${s.goal_days} ${dayWord(s.goal_days ?? 0)}`
-                            : `Didn't reach the goal — ${finalRun} of ${s.goal_days} ${dayWord(s.goal_days ?? 0)}`}
+                            ? `Reached — ${s.goal_days} of ${s.goal_days} ${dayWord(s.goal_days ?? 0)}`
+                            : `Not reached — ${finalRun} of ${s.goal_days} ${dayWord(s.goal_days ?? 0)}`}
                         </dd>
                       </div>
                     )}
                     <div>
-                      <dt className="text-[10px] uppercase tracking-wide text-paper-dim">Times reset</dt>
+                      <dt className="text-[10px] uppercase tracking-wide text-paper-dim">Resets</dt>
                       <dd>{s.reset_count}</dd>
                     </div>
                   </dl>
@@ -95,7 +94,7 @@ export default function ArchiveSheet({ onClose }: { onClose: () => void }) {
                     onClick={() => setOpenId(s.id)}
                     className="mt-3 text-[11px] text-flame hover:text-paper"
                   >
-                    Open full history →
+                    The journey →
                   </button>
                 </li>
               );

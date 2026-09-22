@@ -1,6 +1,6 @@
 "use client";
 
-import { Flame, X, Plus, Archive, Settings as Cog, FileText } from "lucide-react";
+import { Archive, Settings as Cog, FileText, Flame, Plus, X } from "lucide-react";
 
 export default function Sidebar({
   onClose,
@@ -33,18 +33,24 @@ export default function Sidebar({
 
         <nav className="flex flex-col gap-1">
           {[
-            { key: "add" as const, icon: Plus, label: "Add" },
+            { key: "add" as const, icon: Plus, label: "Add Streakment" },
             { key: "archive" as const, icon: Archive, label: "Archive" },
             { key: "settings" as const, icon: Cog, label: "Settings" },
           ].map(({ key, icon: Icon, label }) => (
             <button
               key={key}
-              onClick={() => { onOpen(key); onClose(); }}
+              onClick={() => {
+                onOpen(key);
+                onClose();
+              }}
               className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-paper-dim transition-colors hover:bg-ash hover:text-paper"
             >
               <Icon size={16} /> {label}
             </button>
           ))}
+        </nav>
+
+        <div className="mt-auto pt-4">
           <a
             href="https://app.notion.com/p/arnabsahawrk/COMMITMENT-3aeb14a91aeb80c5b8d8cd3fa66023ee?source=copy_link"
             target="_blank"
@@ -53,10 +59,7 @@ export default function Sidebar({
           >
             <FileText size={16} /> Read Commitment
           </a>
-        </nav>
-
-        <div className="mt-auto border-t border-ember-line pt-4 text-center">
-          <p className="text-[11px] text-paper-dim">
+          <p className="text-[11px] text-paper-dim border-t border-ember-line pt-4 text-center">
             A project by{" "}
             <a
               href="https://arnabsaha.vercel.app"

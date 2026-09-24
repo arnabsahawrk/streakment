@@ -29,7 +29,7 @@ export default function HistorySheet({
 
   if (!data) {
     return (
-      <Modal title="Reset" onClose={onClose} wide>
+      <Modal title="Journey" onClose={onClose} wide>
         <Loading label="Loading" />
       </Modal>
     );

@@ -17,17 +17,25 @@ export async function POST(
     return NextResponse.json({ error: "A closing note is required" }, { status: 400 });
   }
 
-  const [s] = await sql`select * from streaks where id = ${id}`;
-  if (!s) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  try {
+    const [s] = await sql`select * from streaks where id = ${id}`;
+    if (!s) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const streak = currentStreakDays(s.start_date);
-  const newMax = Math.max(s.max_streak, streak);
+    const streak = currentStreakDays(s.start_date);
+    const newMax = Math.max(s.max_streak, streak);
 
-  const [row] = await sql`
-    update streaks
-    set archived = true, archived_at = now(), max_streak = ${newMax}, archive_reason = ${reason}
-    where id = ${id}
-    returning *
-  `;
-  return NextResponse.json(row);
+    const [row] = await sql`
+      update streaks
+      set archived = true, archived_at = now(), max_streak = ${newMax}, archive_reason = ${reason}
+      where id = ${id}
+      returning *
+    `;
+    return NextResponse.json(row);
+  } catch (e) {
+    console.error("archive failed:", e);
+    return NextResponse.json(
+      { error: e instanceof Error ? `Couldn't archive: ${e.message}` : "Couldn't archive that." },
+      { status: 500 }
+    );
+  }
 }

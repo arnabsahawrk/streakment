@@ -156,7 +156,7 @@ export function AddStreakDialog({
 
   return (
     <Modal title="New streakment" onClose={onClose}>
-      <label className="mb-1.5 block text-xs text-paper-dim">What am I committing to</label>
+      <label className="mb-1.5 block text-xs text-paper-dim">Name</label>
       <input
         autoFocus
         value={name}
@@ -178,7 +178,7 @@ export function AddStreakDialog({
         <CharCount value={why} max={LIMITS.why} />
       </div>
 
-      <label className="mb-2 mt-4 block text-xs text-paper-dim">How am I holding it</label>
+      <label className="mb-2 mt-4 block text-xs text-paper-dim">Type</label>
       <div className="mb-3 grid grid-cols-2 gap-2">
         <button
           type="button"
@@ -189,7 +189,7 @@ export function AddStreakDialog({
         >
           <span className="block text-sm font-semibold">Become Legend</span>
           <span className="mt-0.5 block text-[11px] leading-snug text-paper-dim">
-            No finish line.
+            Climbs all the way to Legend.
           </span>
         </button>
         <button
@@ -201,7 +201,7 @@ export function AddStreakDialog({
         >
           <span className="block text-sm font-semibold">Accept Challenge</span>
           <span className="mt-0.5 block text-[11px] leading-snug text-paper-dim">
-            Fixed length.
+            Ends exactly at the goal.
           </span>
         </button>
       </div>

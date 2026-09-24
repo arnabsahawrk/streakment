@@ -8,6 +8,7 @@ import Sidebar from "./Sidebar";
 import ArchiveSheet from "./ArchiveSheet";
 import SettingsSheet from "./SettingsSheet";
 import Loading from "./Loading";
+import Tooltip from "./Tooltip";
 import { AddStreakDialog } from "./Dialogs";
 import { currentStreakDays } from "@/lib/streak";
 import { isTabUnlocked, clearTabUnlocked } from "@/lib/tabLock";
@@ -38,14 +39,31 @@ export default function Dashboard({
 
   // A passcode is checked server-side by page.tsx, but that cookie lives
   // for the whole browser session - reopening a closed tab would still
-  // pass it. This tab-scoped check is what actually asks again, the way
-  // closing and reopening a locked chat app does.
+  // pass it. Two things fix that: this tab-scoped sessionStorage check
+  // on mount, and the beacon below that actively locks the moment this
+  // tab actually closes, so even a browser that restores sessionStorage
+  // for a reopened tab still finds the server-side cookie gone.
   useEffect(() => {
     if (initialSettings.has_passcode && !isTabUnlocked()) {
       router.replace("/unlock");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!initialSettings.has_passcode) return;
+    const onHide = () => {
+      navigator.sendBeacon(
+        "/api/passcode",
+        new Blob([JSON.stringify({ action: "lock" })], { type: "application/json" })
+      );
+    };
+    // pagehide covers real tab/browser close and navigating away; it does
+    // not fire for in-app client-side routing (the Lock button below uses
+    // router.replace, which never triggers this).
+    window.addEventListener("pagehide", onHide);
+    return () => window.removeEventListener("pagehide", onHide);
+  }, [initialSettings.has_passcode]);
 
   async function lockNow() {
     setLocking(true);
@@ -78,22 +96,26 @@ export default function Dashboard({
         </div>
         <div className="flex items-center gap-2">
           {settings.has_passcode && (
-            <button
-              onClick={lockNow}
-              disabled={locking}
-              aria-label="Lock"
-              className="rounded-lg border border-ember-line p-2 text-paper-dim hover:text-paper disabled:opacity-40"
-            >
-              <Unlock size={18} />
-            </button>
+            <Tooltip label="Lock">
+              <button
+                onClick={lockNow}
+                disabled={locking}
+                aria-label="Lock"
+                className="rounded-lg border border-ember-line p-2 text-paper-dim hover:text-paper disabled:opacity-40"
+              >
+                <Unlock size={18} />
+              </button>
+            </Tooltip>
           )}
-          <button
-            onClick={() => setMenuOpen(true)}
-            aria-label="Menu"
-            className="rounded-lg border border-ember-line p-2 text-paper-dim hover:text-paper"
-          >
-            <Menu size={18} />
-          </button>
+          <Tooltip label="Menu">
+            <button
+              onClick={() => setMenuOpen(true)}
+              aria-label="Menu"
+              className="rounded-lg border border-ember-line p-2 text-paper-dim hover:text-paper"
+            >
+              <Menu size={18} />
+            </button>
+          </Tooltip>
         </div>
       </header>
 

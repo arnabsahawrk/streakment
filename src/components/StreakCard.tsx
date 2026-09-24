@@ -1,21 +1,27 @@
 "use client";
 
-import { dayWord, formatDate } from "@/lib/format";
-import { GOLD, viewOf } from "@/lib/progress";
-import { TIERS } from "@/lib/tiers";
-import type { Streak } from "@/lib/types";
-import confetti from "canvas-confetti";
-import { Bell, BellOff, Flag, RotateCcwClock, Route } from "lucide-react";
-import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
-import { ArchiveDialog, ResetDialog } from "./Dialogs";
-import HistorySheet from "./HistorySheet";
-import ProgressRing from "./ProgressRing";
-import RoadmapSheet from "./RoadmapSheet";
-import StreakCounter from "./StreakCounter";
+import { motion } from "motion/react";
+import confetti from "canvas-confetti";
+import { Route, History, Flag, Bell, BellOff } from "lucide-react";
 import Tooltip from "./Tooltip";
+import ProgressRing from "./ProgressRing";
+import StreakCounter from "./StreakCounter";
+import RoadmapSheet from "./RoadmapSheet";
+import HistorySheet from "./HistorySheet";
+import { ResetDialog, ArchiveDialog } from "./Dialogs";
+import { viewOf, GOLD } from "@/lib/progress";
+import { TIERS } from "@/lib/tiers";
+import { formatDate, dayWord } from "@/lib/format";
+import type { Streak } from "@/lib/types";
 
-export default function StreakCard({ streak, onChange }: { streak: Streak; onChange: () => void }) {
+export default function StreakCard({
+  streak,
+  onChange,
+}: {
+  streak: Streak;
+  onChange: () => void;
+}) {
   const [resetOpen, setResetOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [roadmapOpen, setRoadmapOpen] = useState(false);
@@ -111,17 +117,10 @@ export default function StreakCard({ streak, onChange }: { streak: Streak; onCha
             {v.isPaused ? (
               <div className="px-3 text-center">
                 <p className="font-mono text-6xl font-bold leading-none text-paper-dim">—</p>
-                <p className="mt-2 text-[10px] uppercase tracking-[0.25em] text-paper-dim">
-                  Paused
-                </p>
+                <p className="mt-2 text-[10px] uppercase tracking-[0.25em] text-paper-dim">Paused</p>
               </div>
             ) : (
-              <StreakCounter
-                value={v.days}
-                label={v.daysLabel}
-                caption={v.caption}
-                color={v.color}
-              />
+              <StreakCounter value={v.days} label={v.daysLabel} caption={v.caption} color={v.color} />
             )}
           </ProgressRing>
         </div>
@@ -129,21 +128,12 @@ export default function StreakCard({ streak, onChange }: { streak: Streak; onCha
         {v.line && <p className="mt-4 max-w-xs text-sm font-bold text-paper">{v.line}</p>}
 
         <p className="mt-2 text-xs text-paper-dim">
-          {v.showsBest && (
-            <>
-              Best: {best} {dayWord(best)}
-            </>
-          )}
+          {v.showsBest && <>Best: {best} {dayWord(best)}</>}
           {!v.isPaused && v.isChallenge && v.goalDays && !v.isFinished && (
-            <>
-              {v.goalDays - v.days} {dayWord(v.goalDays - v.days)} to go
-            </>
+            <>{v.goalDays - v.days} {dayWord(v.goalDays - v.days)} to go</>
           )}
           {!v.isPaused && !v.isChallenge && v.upNext && (
-            <>
-              {" "}
-              · {v.upNext.min - v.days} to {v.upNext.name}
-            </>
+            <> · {v.upNext.min - v.days} {dayWord(v.upNext.min - v.days)} to {v.upNext.name}</>
           )}
         </p>
 
@@ -176,44 +166,28 @@ export default function StreakCard({ streak, onChange }: { streak: Streak; onCha
             {v.isPaused ? "Paused" : formatDate(streak.start_date as string)}
           </span>
           <div className="flex items-center gap-3 text-paper-dim">
-            <Tooltip label={emailEnabled ? "Mute" : "Unmute"}>
+            <Tooltip label="Notification">
               <button
                 onClick={toggleEmail}
                 disabled={busy === "mute"}
-                aria-label={
-                  emailEnabled
-                    ? "Mute emails for this streakment"
-                    : "Unmute emails for this streakment"
-                }
+                aria-label={emailEnabled ? "Mute notifications for this streakment" : "Unmute notifications for this streakment"}
                 className="p-1 hover:text-paper disabled:opacity-40"
               >
                 {emailEnabled ? <Bell size={16} /> : <BellOff size={16} />}
               </button>
             </Tooltip>
             <Tooltip label="Roadmap">
-              <button
-                onClick={() => setRoadmapOpen(true)}
-                aria-label="Open roadmap"
-                className="p-1 hover:text-paper"
-              >
+              <button onClick={() => setRoadmapOpen(true)} aria-label="Open roadmap" className="p-1 hover:text-paper">
                 <Route size={16} />
               </button>
             </Tooltip>
             <Tooltip label="Reset">
-              <button
-                onClick={() => setHistoryOpen(true)}
-                aria-label="Open reset"
-                className="p-1 hover:text-paper"
-              >
-                <RotateCcwClock size={16} />
+              <button onClick={() => setHistoryOpen(true)} aria-label="Open reset history" className="p-1 hover:text-paper">
+                <History size={16} />
               </button>
             </Tooltip>
             <Tooltip label="Archive">
-              <button
-                onClick={() => setArchiveOpen(true)}
-                aria-label="Archive"
-                className="p-1 hover:text-paper"
-              >
+              <button onClick={() => setArchiveOpen(true)} aria-label="Archive" className="p-1 hover:text-paper">
                 <Flag size={16} />
               </button>
             </Tooltip>

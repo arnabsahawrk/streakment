@@ -43,11 +43,20 @@ export async function POST(req: Request) {
     goalDays = n;
   }
 
-  const [row] = await sql`
-    insert into streaks (name, why_note, type, goal_days)
-    values (${name}, ${why}, ${type}, ${goalDays})
-    returning *
-  `;
+  let row;
+  try {
+    [row] = await sql`
+      insert into streaks (name, why_note, type, goal_days)
+      values (${name}, ${why}, ${type}, ${goalDays})
+      returning *
+    `;
+  } catch (e) {
+    console.error("streak insert failed:", e);
+    return NextResponse.json(
+      { error: e instanceof Error ? `Couldn't save: ${e.message}` : "Couldn't save that." },
+      { status: 500 }
+    );
+  }
 
   // Best-effort: the streak exists either way, so an email hiccup here
   // never fails the request. Only the daily cron's sends need the
@@ -56,7 +65,7 @@ export async function POST(req: Request) {
     const [settings] = await sql`select email_milestones from user_settings where singleton = true`;
     if (settings?.email_milestones) {
       const title = type === "challenge" ? `${row.name} — accepted` : `${row.name} — begun`;
-      const body =
+      const emailBody =
         type === "challenge"
           ? `<p style="margin:0 0 12px;color:#F2ECE3;font-size:15px;line-height:1.6">${goalDays} ${dayWord(goalDays ?? 0)}. Clock starts now.</p>
 ${streakDetailsBlock({ name: row.name, why_note: row.why_note, reset_count: row.reset_count }, "Goal", `${goalDays} ${dayWord(goalDays ?? 0)}`)}
@@ -64,13 +73,14 @@ ${streakDetailsBlock({ name: row.name, why_note: row.why_note, reset_count: row.
           : `<p style="margin:0 0 12px;color:#F2ECE3;font-size:15px;line-height:1.6">Day zero. The clock starts now.</p>
 ${streakDetailsBlock({ name: row.name, why_note: row.why_note, reset_count: row.reset_count }, "Level", "Day Zero")}
 <p style="margin:0;color:#A79C8C;font-size:14px;line-height:1.6">No finish line on this one. Just don't stop tomorrow.</p>`;
-      const ok = await sendEmail({ to: NOTIFY_EMAIL, subject: title, html: emailShell(title, body) });
+      const ok = await sendEmail({ to: NOTIFY_EMAIL, subject: title, html: emailShell(title, emailBody) });
       if (ok) {
         await sql`insert into email_log (streak_id, kind, marker) values (${row.id}, 'created', '0') on conflict do nothing`;
       }
     }
-  } catch {
+  } catch (e) {
     // Streak creation itself already succeeded; nothing to roll back.
+    console.error("creation email failed:", e);
   }
 
   return NextResponse.json(row, { status: 201 });

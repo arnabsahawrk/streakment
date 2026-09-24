@@ -1,7 +1,7 @@
+import { cookies } from "next/headers";
+import crypto from "crypto";
 import sql from "@/lib/db";
 import type { UserSettings } from "@/lib/types";
-import crypto from "crypto";
-import { cookies } from "next/headers";
 
 export const PASSCODE_COOKIE = "sm_unlocked";
 
@@ -10,10 +10,7 @@ export const PASSCODE_COOKIE = "sm_unlocked";
  *  action in /api/passcode). AES-256-GCM keyed from PASSCODE_KEY, so
  *  it's unreadable from a plain database browse but not one-way. */
 function key(): Buffer {
-  return crypto
-    .createHash("sha256")
-    .update(process.env.PASSCODE_KEY ?? "")
-    .digest();
+  return crypto.createHash("sha256").update(process.env.PASSCODE_KEY ?? "").digest();
 }
 
 export function encryptPasscode(passcode: string): string {
@@ -39,9 +36,8 @@ export async function getSettings(): Promise<UserSettings> {
   const [row] = await sql`
     insert into user_settings (singleton) values (true)
     on conflict (singleton) do update set updated_at = user_settings.updated_at
-    returning email_milestones, timezone, passcode_enc
+    returning *
   `;
-
   return {
     email_milestones: row.email_milestones,
     timezone: row.timezone,

@@ -27,11 +27,19 @@ export async function PATCH(
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
 
-  const [row] = await sql`
-    update streaks set ${sql(fields)}
-    where id = ${id}
-    returning *
-  `;
-  if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(row);
+  try {
+    const [row] = await sql`
+      update streaks set ${sql(fields)}
+      where id = ${id}
+      returning *
+    `;
+    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json(row);
+  } catch (e) {
+    console.error("streak update failed:", e);
+    return NextResponse.json(
+      { error: e instanceof Error ? `Couldn't save: ${e.message}` : "Couldn't save that." },
+      { status: 500 }
+    );
+  }
 }

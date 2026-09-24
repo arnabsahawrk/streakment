@@ -1,26 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Menu, Unlock } from "lucide-react";
-import StreakCard from "./StreakCard";
-import Sidebar from "./Sidebar";
-import ArchiveSheet from "./ArchiveSheet";
-import SettingsSheet from "./SettingsSheet";
-import Loading from "./Loading";
-import Tooltip from "./Tooltip";
-import { AddStreakDialog } from "./Dialogs";
 import { currentStreakDays } from "@/lib/streak";
-import { isTabUnlocked, clearTabUnlocked } from "@/lib/tabLock";
+import { clearTabUnlocked, isTabUnlocked } from "@/lib/tabLock";
 import type { Streak, UserSettings } from "@/lib/types";
+import { Menu, Unlock } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import ArchiveSheet from "./ArchiveSheet";
+import { AddStreakDialog } from "./Dialogs";
+import Loading from "./Loading";
+import SettingsSheet from "./SettingsSheet";
+import Sidebar from "./Sidebar";
+import StreakCard from "./StreakCard";
+import Tooltip from "./Tooltip";
 
 type Sheet = "archive" | "settings" | null;
 
-export default function Dashboard({
-  settings: initialSettings,
-}: {
-  settings: UserSettings;
-}) {
+export default function Dashboard({ settings: initialSettings }: { settings: UserSettings }) {
   const router = useRouter();
   const [streaks, setStreaks] = useState<Streak[] | null>(null);
   const [settings, setSettings] = useState(initialSettings);
@@ -35,7 +31,9 @@ export default function Dashboard({
     setStreaks(Array.isArray(data) ? data : []);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // A passcode is checked server-side by page.tsx, but that cookie lives
   // for the whole browser session - reopening a closed tab would still
@@ -55,7 +53,7 @@ export default function Dashboard({
     const onHide = () => {
       navigator.sendBeacon(
         "/api/passcode",
-        new Blob([JSON.stringify({ action: "lock" })], { type: "application/json" })
+        new Blob([JSON.stringify({ action: "lock" })], { type: "application/json" }),
       );
     };
     // pagehide covers real tab/browser close and navigating away; it does
@@ -82,9 +80,7 @@ export default function Dashboard({
 
   // Shortest run first: the one closest to breaking sits at the top.
   const sorted = streaks
-    ? [...streaks].sort(
-        (a, b) => currentStreakDays(a.start_date) - currentStreakDays(b.start_date)
-      )
+    ? [...streaks].sort((a, b) => currentStreakDays(a.start_date) - currentStreakDays(b.start_date))
     : [];
 
   return (
@@ -107,7 +103,7 @@ export default function Dashboard({
               </button>
             </Tooltip>
           )}
-          <Tooltip label="Menu">
+          {/* <Tooltip label="Menu">
             <button
               onClick={() => setMenuOpen(true)}
               aria-label="Menu"
@@ -115,7 +111,14 @@ export default function Dashboard({
             >
               <Menu size={18} />
             </button>
-          </Tooltip>
+          </Tooltip> */}
+          <button
+            onClick={() => setMenuOpen(true)}
+            aria-label="Menu"
+            className="rounded-lg border border-ember-line p-2 text-paper-dim hover:text-paper"
+          >
+            <Menu size={18} />
+          </button>
         </div>
       </header>
 
@@ -155,7 +158,13 @@ export default function Dashboard({
         />
       )}
       {adding && (
-        <AddStreakDialog onClose={() => setAdding(false)} onCreated={() => { setAdding(false); load(); }} />
+        <AddStreakDialog
+          onClose={() => setAdding(false)}
+          onCreated={() => {
+            setAdding(false);
+            load();
+          }}
+        />
       )}
       {sheet === "archive" && <ArchiveSheet onClose={() => setSheet(null)} />}
       {sheet === "settings" && (

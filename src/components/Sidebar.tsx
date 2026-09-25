@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Zap, Archive, FileText, Settings as Cog } from "lucide-react";
+import { Archive, Settings as Cog, FileText, NotepadText, X, Zap } from "lucide-react";
 
 export default function Sidebar({
   onClose,
@@ -19,7 +19,13 @@ export default function Sidebar({
         <div className="mb-6 flex items-start justify-between">
           <div className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/icon-192.png" alt="" width={36} height={36} className="h-9 w-9 shrink-0 rounded-xl" />
+            <img
+              src="/icons/icon-192.png"
+              alt=""
+              width={36}
+              height={36}
+              className="h-9 w-9 shrink-0 rounded-xl"
+            />
             <div>
               <p className="text-sm font-bold tracking-tight">STREAKMENT</p>
               <p className="text-[10px] text-paper-dim">Streak + Commitment</p>
@@ -37,22 +43,37 @@ export default function Sidebar({
           ].map(({ key, icon: Icon, label }) => (
             <button
               key={key}
-              onClick={() => { onOpen(key); onClose(); }}
+              onClick={() => {
+                onOpen(key);
+                onClose();
+              }}
               className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-paper-dim transition-colors hover:bg-ash hover:text-paper"
             >
               <Icon size={16} /> {label}
             </button>
           ))}
           <a
-            href="https://app.notion.com/p/arnabsahawrk/COMMITMENT-3aeb14a91aeb80c5b8d8cd3fa66023ee?source=copy_link"
+            href="https://app.notion.com/p/arnabsahawrk/COMMITMENT-3aeb14a91aeb80c5b8d8cd3fa66023ee"
             target="_blank"
             rel="noreferrer noopener"
             className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-paper-dim transition-colors hover:bg-ash hover:text-paper"
           >
             <FileText size={16} /> Read Commitment
           </a>
+          <a
+            href="https://app.notion.com/p/arnabsahawrk/NOTE-3bfb14a91aeb80548a99cfd97fe42abc"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-paper-dim transition-colors hover:bg-ash hover:text-paper"
+          >
+            <NotepadText size={16} />
+            Read Note
+          </a>
           <button
-            onClick={() => { onOpen("settings"); onClose(); }}
+            onClick={() => {
+              onOpen("settings");
+              onClose();
+            }}
             className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-paper-dim transition-colors hover:bg-ash hover:text-paper"
           >
             <Cog size={16} /> Settings

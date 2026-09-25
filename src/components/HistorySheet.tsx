@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Modal from "./Modal";
-import Loading from "./Loading";
+import { dayWord, formatDate, typeLabel } from "@/lib/format";
 import { currentStreakDays } from "@/lib/streak";
 import { getTier } from "@/lib/tiers";
-import { formatDate, dayWord, typeLabel } from "@/lib/format";
-import type { Streak, ResetEntry } from "@/lib/types";
+import type { ResetEntry, Streak } from "@/lib/types";
+import { useEffect, useState } from "react";
+import Loading from "./Loading";
+import Modal from "./Modal";
 
 /** Every number and every break, for one streak — running or archived.
  *  This is the one thing an archived streak still offers, since its
@@ -39,7 +39,7 @@ export default function HistorySheet({
   const isChallenge = s.type === "challenge" && !!s.goal_days;
   // For an archived streak, every number is fixed at the moment it was
   // archived — it must never still be counting up to today.
-  const asOf = s.archived ? s.archived_at ?? undefined : undefined;
+  const asOf = s.archived ? (s.archived_at ?? undefined) : undefined;
   const days = currentStreakDays(s.start_date, asOf);
   const best = Math.max(s.max_streak, s.archived ? 0 : days);
 
@@ -48,7 +48,10 @@ export default function HistorySheet({
       <dl className="mb-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
         <div>
           <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Type</dt>
-          <dd>{typeLabel(isChallenge)}{isChallenge && ` · ${s.goal_days} ${dayWord(s.goal_days ?? 0)}`}</dd>
+          <dd>
+            {typeLabel(isChallenge)}
+            {isChallenge && ` · ${s.goal_days} ${dayWord(s.goal_days ?? 0)}`}
+          </dd>
         </div>
         <div>
           <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Started</dt>
@@ -75,14 +78,16 @@ export default function HistorySheet({
             {!isChallenge && (
               <div>
                 <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Best</dt>
-                <dd>{best} {dayWord(best)}</dd>
+                <dd>
+                  {best} {dayWord(best)}
+                </dd>
               </div>
             )}
           </>
         )}
 
         <div>
-          <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Resets</dt>
+          <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Break</dt>
           <dd>{s.reset_count}</dd>
         </div>
       </dl>

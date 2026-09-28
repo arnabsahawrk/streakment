@@ -12,7 +12,6 @@ import Loading from "./Loading";
 import SettingsSheet from "./SettingsSheet";
 import Sidebar from "./Sidebar";
 import StreakCard from "./StreakCard";
-import Tooltip from "./Tooltip";
 
 type Sheet = "archive" | "settings" | null;
 
@@ -92,26 +91,15 @@ export default function Dashboard({ settings: initialSettings }: { settings: Use
         </div>
         <div className="flex items-center gap-2">
           {settings.has_passcode && (
-            <Tooltip label="Lock">
-              <button
-                onClick={lockNow}
-                disabled={locking}
-                aria-label="Lock"
-                className="rounded-lg border border-ember-line p-2 text-paper-dim hover:text-paper disabled:opacity-40"
-              >
-                <Unlock size={18} />
-              </button>
-            </Tooltip>
-          )}
-          {/* <Tooltip label="Menu">
             <button
-              onClick={() => setMenuOpen(true)}
-              aria-label="Menu"
-              className="rounded-lg border border-ember-line p-2 text-paper-dim hover:text-paper"
+              onClick={lockNow}
+              disabled={locking}
+              aria-label="Lock"
+              className="rounded-lg border border-ember-line p-2 text-paper-dim hover:text-paper disabled:opacity-40"
             >
-              <Menu size={18} />
+              <Unlock size={18} />
             </button>
-          </Tooltip> */}
+          )}
           <button
             onClick={() => setMenuOpen(true)}
             aria-label="Menu"

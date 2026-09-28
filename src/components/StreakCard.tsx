@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import confetti from "canvas-confetti";
 import { Route, History, Flag, Bell, BellOff } from "lucide-react";
-import Tooltip from "./Tooltip";
 import ProgressRing from "./ProgressRing";
 import StreakCounter from "./StreakCounter";
 import RoadmapSheet from "./RoadmapSheet";
@@ -166,31 +165,23 @@ export default function StreakCard({
             {v.isPaused ? "Paused" : formatDate(streak.start_date as string)}
           </span>
           <div className="flex items-center gap-3 text-paper-dim">
-            <Tooltip label="Notification">
-              <button
-                onClick={toggleEmail}
-                disabled={busy === "mute"}
-                aria-label={emailEnabled ? "Mute notifications for this streakment" : "Unmute notifications for this streakment"}
-                className="p-1 hover:text-paper disabled:opacity-40"
-              >
-                {emailEnabled ? <Bell size={16} /> : <BellOff size={16} />}
-              </button>
-            </Tooltip>
-            <Tooltip label="Roadmap">
-              <button onClick={() => setRoadmapOpen(true)} aria-label="Open roadmap" className="p-1 hover:text-paper">
-                <Route size={16} />
-              </button>
-            </Tooltip>
-            <Tooltip label="Reset">
-              <button onClick={() => setHistoryOpen(true)} aria-label="Open reset history" className="p-1 hover:text-paper">
-                <History size={16} />
-              </button>
-            </Tooltip>
-            <Tooltip label="Archive">
-              <button onClick={() => setArchiveOpen(true)} aria-label="Archive" className="p-1 hover:text-paper">
-                <Flag size={16} />
-              </button>
-            </Tooltip>
+            <button
+              onClick={toggleEmail}
+              disabled={busy === "mute"}
+              aria-label={emailEnabled ? "Mute notifications for this streakment" : "Unmute notifications for this streakment"}
+              className="p-1 hover:text-paper disabled:opacity-40"
+            >
+              {emailEnabled ? <Bell size={16} /> : <BellOff size={16} />}
+            </button>
+            <button onClick={() => setRoadmapOpen(true)} aria-label="Open roadmap" className="p-1 hover:text-paper">
+              <Route size={16} />
+            </button>
+            <button onClick={() => setHistoryOpen(true)} aria-label="Open reset history" className="p-1 hover:text-paper">
+              <History size={16} />
+            </button>
+            <button onClick={() => setArchiveOpen(true)} aria-label="Archive" className="p-1 hover:text-paper">
+              <Flag size={16} />
+            </button>
           </div>
         </div>
 

@@ -185,28 +185,32 @@ export default function StreakCard({ streak, onChange }: { streak: Streak; onCha
               }
               className="p-1 hover:text-paper disabled:opacity-40"
             >
-              {emailEnabled ? <Bell size={15} /> : <BellOff size={15} />}
+              {emailEnabled ? (
+                <Bell className="size-[15px] sm:size-4" />
+              ) : (
+                <BellOff className="size-[15px] sm:size-4" />
+              )}
             </button>
             <button
               onClick={() => setRoadmapOpen(true)}
               aria-label="Open roadmap"
               className="p-1 hover:text-paper"
             >
-              <Route size={15} />
+              <Route className="size-[15px] sm:size-4" />
             </button>
             <button
               onClick={() => setHistoryOpen(true)}
               aria-label="Open reset history"
               className="p-1 hover:text-paper"
             >
-              <History size={15} />
+              <History className="size-[15px] sm:size-4" />
             </button>
             <button
               onClick={() => setArchiveOpen(true)}
               aria-label="Archive"
               className="p-1 hover:text-paper"
             >
-              <Flag size={15} />
+              <Flag className="size-[15px] sm:size-4" />
             </button>
           </div>
         </div>

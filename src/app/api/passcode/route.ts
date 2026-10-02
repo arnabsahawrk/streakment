@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { decryptPasscode, encryptPasscode, isUnlocked, PASSCODE_COOKIE } from "@/lib/session";
+import {
+  decryptPasscode,
+  encryptPasscode,
+  isUnlocked,
+  PASSCODE_COOKIE,
+  UNLOCK_COOKIE_OPTS,
+} from "@/lib/session";
+import { removeAllCredentials } from "@/lib/webauthn";
 import { sendEmail, emailShell } from "@/lib/email";
 
 const NOTIFY_EMAIL = "arnabsahawrk@gmail.com";
-const COOKIE_OPTS = { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/" };
+const COOKIE_OPTS = UNLOCK_COOKIE_OPTS;
 
 /** The only lock in the app now that there's no sign-in. The passcode is
  *  encrypted (not hashed) precisely so "recover" can work - see below.
@@ -92,6 +99,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "That passcode isn't right" }, { status: 401 });
     }
     await sql`update user_settings set passcode_enc = null, updated_at = now() where singleton = true`;
+    // Biometrics only exist on top of a passcode, so they go with it.
+    await removeAllCredentials();
     const res = NextResponse.json({ ok: true });
     res.cookies.delete(PASSCODE_COOKIE);
     return res;

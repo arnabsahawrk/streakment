@@ -82,6 +82,13 @@ often it broke, the closing note, and its full journey one tap away.
   icon locks it again immediately. Forgot it? "Forgot passcode?" on the
   lock screen emails it back — the passcode is encrypted, not hashed, so
   it can be recovered rather than only ever reset.
+- **Biometric unlock.** Once a passcode is set, each device can also open
+  the app with Touch ID, Face ID, an Android fingerprint or Windows Hello
+  (menu → Settings → Biometric unlock). It sits on top of the passcode and
+  never replaces it: the server checks a signed answer from the device
+  before it unlocks anything, and the passcode keeps working everywhere.
+  Each device, browser or installed app is switched on separately and
+  listed there, so a lost phone can be removed from any other device.
 - **Locks itself per tab.** Closing the tab and reopening the app asks
   for the passcode again, the way a locked chat app does — the browser
   session cookie alone would otherwise leave a reopened tab still
@@ -98,6 +105,9 @@ often it broke, the closing note, and its full journey one tap away.
 
 Create a free [Neon](https://neon.tech) project and run **`schema.sql`**
 once in its SQL Editor. Keep the pooled connection string.
+
+Already running before biometric unlock existed? Run just section 5 of
+`schema.sql`; every statement in it is safe to repeat.
 
 ### 2. Email
 
@@ -138,13 +148,16 @@ src/
   lib/
     session.ts     Settings, passcode encryption, the passcode gate -
                     the only security boundary in the app
+    webauthn.ts     Server side of biometric unlock: challenges and the
+                    stored devices
+    biometric.ts    Browser side: the Touch ID / Face ID prompt
     streak.ts       Day maths and display caps
     tiers.ts        The ten milestone names and colours
     progress.ts     One view model shared by the card and the roadmap
     email.ts        Brevo
     limits.ts       Text ceilings, mirrored by database constraints
   components/       Card, roadmap, journey, dialogs, sheets
-  app/api/          streaks/, settings/, passcode/, cron/daily sends
+  app/api/          streaks/, settings/, passcode/, webauthn/, cron/daily sends
                      notifications
 ```
 

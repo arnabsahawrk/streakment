@@ -5,6 +5,15 @@ import type { UserSettings } from "@/lib/types";
 
 export const PASSCODE_COOKIE = "sm_unlocked";
 
+/** Cookie options for the unlock cookie. Shared by every way of getting
+ *  in (the passcode and biometrics), so the two can never drift apart. */
+export const UNLOCK_COOKIE_OPTS = {
+  httpOnly: true,
+  secure: true,
+  sameSite: "lax" as const,
+  path: "/",
+};
+
 /** The passcode is encrypted, not hashed - on request, the exact
  *  original has to be recoverable to email back (see the "recover"
  *  action in /api/passcode). AES-256-GCM keyed from PASSCODE_KEY, so

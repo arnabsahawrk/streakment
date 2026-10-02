@@ -29,3 +29,11 @@ export interface UserSettings {
   timezone: string;
   has_passcode: boolean;
 }
+
+/** One device that has biometric unlock switched on. */
+export interface BiometricDevice {
+  id: string;
+  label: string;
+  created_at: string;
+  last_used_at: string | null;
+}

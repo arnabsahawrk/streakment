@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Modal from "./Modal";
+import BiometricSettings from "./BiometricSettings";
+import { clearBiometricMarker } from "@/lib/biometric";
 import { markTabUnlocked } from "@/lib/tabLock";
 import type { UserSettings } from "@/lib/types";
 
@@ -67,6 +69,7 @@ export default function SettingsSheet({
       const updated = { ...s, has_passcode: action !== "remove" };
       setS(updated); onSaved(updated); setCurrent(""); setNext("");
       if (action !== "remove") markTabUnlocked();
+      else clearBiometricMarker(); // biometric unlock goes with the passcode
       setMsg(action === "remove" ? "Removed." : "Saved.");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't update it.");
@@ -145,6 +148,8 @@ export default function SettingsSheet({
 
       {err && <p className="mt-3 text-xs text-red-400">{err}</p>}
       {msg && <p className="mt-3 text-xs text-flame">{msg}</p>}
+
+      {s.has_passcode && <BiometricSettings />}
     </Modal>
   );
 }

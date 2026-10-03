@@ -24,8 +24,6 @@ export default function ArchiveSheet({ onClose }: { onClose: () => void }) {
       .catch(() => setItems([]));
   }, []);
 
-  console.log(items);
-
   return (
     <>
       <Modal title="Archive" onClose={onClose} wide>

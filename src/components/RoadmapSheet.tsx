@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Modal from "./Modal";
 import Loading from "./Loading";
 import { LegendRoadmap, ChallengeRoadmap } from "./Roadmap";
+import { now } from "@/lib/clock";
 import { viewOf } from "@/lib/progress";
 import type { Streak } from "@/lib/types";
 
@@ -34,15 +35,17 @@ export default function RoadmapSheet({
     );
   }
 
-  const v = viewOf(streak);
+  const v = viewOf(streak, now());
 
   return (
     <Modal title={streak.name} onClose={onClose} wide>
-      {v.isChallenge && v.goalDays ? (
-        <ChallengeRoadmap days={v.days} goal={v.goalDays} paused={v.isPaused} color={v.color} />
-      ) : (
-        <LegendRoadmap days={v.days} paused={v.isPaused} />
-      )}
+      <div className="sm-fade">
+        {v.isChallenge && v.goalDays ? (
+          <ChallengeRoadmap days={v.days} goal={v.goalDays} paused={v.isPaused} color={v.color} />
+        ) : (
+          <LegendRoadmap days={v.days} paused={v.isPaused} />
+        )}
+      </div>
     </Modal>
   );
 }

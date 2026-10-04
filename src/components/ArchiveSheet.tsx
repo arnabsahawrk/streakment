@@ -1,9 +1,11 @@
 "use client";
 
-import { dayWord, formatDate, typeLabel } from "@/lib/format";
+import { useDisplay } from "@/lib/clock";
+import { dayWord, typeLabel } from "@/lib/format";
 import { currentStreakDays } from "@/lib/streak";
 import { getTier } from "@/lib/tiers";
 import type { Streak } from "@/lib/types";
+import { AnimatePresence } from "motion/react";
 import { useEffect, useState } from "react";
 import HistorySheet from "./HistorySheet";
 import Loading from "./Loading";
@@ -16,6 +18,7 @@ import Modal from "./Modal";
 export default function ArchiveSheet({ onClose }: { onClose: () => void }) {
   const [items, setItems] = useState<Streak[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const d = useDisplay();
 
   useEffect(() => {
     fetch("/api/streaks?archived=true")
@@ -35,12 +38,16 @@ export default function ArchiveSheet({ onClose }: { onClose: () => void }) {
           </p>
         ) : (
           <ul className="flex flex-col gap-5">
-            {items.map((s) => {
+            {items.map((s, idx) => {
               const isChallenge = s.type === "challenge" && !!s.goal_days;
               const finalRun = s.archived_at ? currentStreakDays(s.start_date, s.archived_at) : 0;
               const best = Math.max(s.max_streak, 0);
               return (
-                <li key={s.id} className="rounded-xl border border-ember-line bg-ash p-4">
+                <li
+                  key={s.id}
+                  className="sm-rise rounded-xl border border-ember-line bg-ash p-4"
+                  style={{ animationDelay: `${Math.min(idx, 8) * 55}ms` }}
+                >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <h3 className="break-words font-semibold">{s.name}</h3>
                     <span className="shrink-0 rounded-full border border-ember-line px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-paper-dim">
@@ -48,20 +55,20 @@ export default function ArchiveSheet({ onClose }: { onClose: () => void }) {
                     </span>
                   </div>
 
-                  <p className="mt-1.5 text-justify text-xs text-paper-dim">{s.why_note}</p>
+                  <p className="prose-text mt-1.5 text-xs text-paper-dim">{s.why_note}</p>
 
                   <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                     <div>
                       <dt className="text-[10px] uppercase tracking-wide text-paper-dim">
                         Started
                       </dt>
-                      <dd>{formatDate(s.created_at)}</dd>
+                      <dd>{d.date(s.created_at)}</dd>
                     </div>
                     <div>
                       <dt className="text-[10px] uppercase tracking-wide text-paper-dim">
                         Archived
                       </dt>
-                      <dd>{s.archived_at ? formatDate(s.archived_at) : "—"}</dd>
+                      <dd>{s.archived_at ? d.dateTime(s.archived_at) : "—"}</dd>
                     </div>
                     {!isChallenge && (
                       <div className="col-span-2">
@@ -100,7 +107,7 @@ export default function ArchiveSheet({ onClose }: { onClose: () => void }) {
 
                   <button
                     onClick={() => setOpenId(s.id)}
-                    className="mt-3 text-[11px] text-flame hover:text-paper"
+                    className="press mt-3 text-[11px] text-flame hover:text-paper"
                   >
                     The journey →
                   </button>
@@ -111,7 +118,9 @@ export default function ArchiveSheet({ onClose }: { onClose: () => void }) {
         )}
       </Modal>
 
-      {openId && <HistorySheet streakId={openId} onClose={() => setOpenId(null)} />}
+      <AnimatePresence>
+        {openId && <HistorySheet key={openId} streakId={openId} onClose={() => setOpenId(null)} />}
+      </AnimatePresence>
     </>
   );
 }

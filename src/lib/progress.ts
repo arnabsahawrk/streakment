@@ -1,6 +1,8 @@
 import { currentStreakDays, CHALLENGE_CAP, LEGEND_CAP, displayDays } from "./streak";
 import { getTier, nextTier, LEGEND_MIN, type Tier } from "./tiers";
 import { dayWord } from "./format";
+import type { Streak } from "./types";
+import { DAY_MS } from "./zone";
 
 export const NEUTRAL = "#8A8578";
 export const GOLD = "#E0A82E";
@@ -38,15 +40,20 @@ export interface StreakView {
 /** Single source of truth for how a streak renders. The card, the
  *  roadmap and the archive detail all read from here so they cannot
  *  drift apart. */
-export function viewOf(s: {
-  start_date: string | null;
-  type?: string | null;
-  goal_days?: number | null;
-}): StreakView {
+export function viewOf(
+  s: {
+    start_date: string | null;
+    type?: string | null;
+    goal_days?: number | null;
+  },
+  /** The moment to count to. Cards pass the live clock's moment so the day
+   *  flips on time even if the device clock is a little off. */
+  asOf: string | Date | number = new Date(),
+): StreakView {
   const isChallenge = (s.type ?? "legend") === "challenge" && !!s.goal_days;
   const goalDays = isChallenge ? (s.goal_days as number) : null;
   const isPaused = s.start_date === null;
-  const days = currentStreakDays(s.start_date);
+  const days = currentStreakDays(s.start_date, asOf);
   const cap = isChallenge ? CHALLENGE_CAP : LEGEND_CAP;
 
   if (isPaused) {
@@ -105,4 +112,40 @@ export function viewOf(s: {
     caption: dayWord(days).toUpperCase(),
     showsBest: true,
   };
+}
+
+export interface Upcoming {
+  id: string;
+  name: string;
+  /** "Thrive", or "Complete" for a challenge. */
+  label: string;
+  color: string;
+  /** The moment it arrives, in ms. */
+  at: number;
+}
+
+/** Whichever running streakment reaches its next tier (or the end of its
+ *  challenge) soonest. Null when nothing is running or everything has
+ *  already arrived. */
+export function nextMilestone(streaks: Streak[], nowMs: number): Upcoming | null {
+  let best: Upcoming | null = null;
+  for (const s of streaks) {
+    if (s.archived || !s.start_date) continue;
+    const start = Date.parse(s.start_date);
+    if (Number.isNaN(start)) continue;
+    const v = viewOf(s, nowMs);
+    if (v.isFinished) continue;
+    const targetDays = v.isChallenge ? v.goalDays : (v.upNext?.min ?? null);
+    if (!targetDays) continue;
+    const at = start + targetDays * DAY_MS;
+    if (best && at >= best.at) continue;
+    best = {
+      id: s.id,
+      name: s.name,
+      label: v.isChallenge ? "Complete" : (v.upNext?.name ?? ""),
+      color: v.isChallenge ? GOLD : (v.upNext?.color ?? NEUTRAL),
+      at,
+    };
+  }
+  return best;
 }

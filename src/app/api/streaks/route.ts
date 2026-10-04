@@ -12,10 +12,17 @@ export async function GET(req: Request) {
   if (!(await isUnlocked())) return NextResponse.json({ error: "Locked" }, { status: 401 });
 
   const archived = new URL(req.url).searchParams.get("archived") === "true";
+  // paused_at is read straight from the existing break history (the latest
+  // reset is the moment a paused streakment stopped), so the card can show
+  // how long it has been paused without storing anything new.
   const rows = await sql`
-    select * from streaks
-    where archived = ${archived}
-    order by ${archived ? sql`archived_at desc` : sql`created_at asc`}
+    select s.*,
+      case when s.start_date is null and not s.archived
+        then (select max(r.reset_at) from reset_log r where r.streak_id = s.id)
+      end as paused_at
+    from streaks s
+    where s.archived = ${archived}
+    order by ${archived ? sql`s.archived_at desc` : sql`s.created_at asc`}
   `;
   return NextResponse.json(rows);
 }

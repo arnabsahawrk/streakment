@@ -75,7 +75,38 @@ Finishing a streakment doesn't delete it. The archive keeps what it was,
 why it started, when, how far it got (or whether it met its goal), how
 often it broke, the closing note, and its full journey one tap away.
 
+### The live clock
+
+A line under the title always shows the date, the time to the second and
+the zone - `Sat, Oct 3, 2026 · 21:32:47 · Asia/Dhaka` - and it follows the
+device: land somewhere new and it changes by itself, no reload. The same
+clock drives every date in the app, the lock screen, and the reset and
+archive dialogs. Each card counts down to its next day live ("Next day in
+11:27:13"), a paused card counts how long it has been paused, and a "Next
+up" strip counts down to whichever milestone arrives soonest. A card left
+open overnight flips to the new day on its own.
+
+Menu → Settings → Time lets you pin a zone instead of following the
+device, switch between 24-hour and 12-hour, and choose the order of the
+cards (shortest first, longest first, newest). These are display choices,
+so they live in the device's own storage rather than the database.
+
+### Stats
+
+Tap **Stats** under the clock (or in the menu): lifetime resets, days lit,
+streakments started, how often the app was opened on this device, days lit
+in the last 7 and 30 days, longest and average run, how fast you come
+back after a reset, how many times each tier was reached, when resets tend
+to happen (weekday by time of day), and which streakment is reset most.
+Every figure is worked out from the streaks and break history already
+stored, so Stats costs the database nothing.
+
 ### Everything else
+
+- **Edit** a streakment's name or its why from the pencil on its card; the
+  count, best and history are untouched.
+- **Backup.** Settings → Backup downloads (or copies) every streakment,
+  break and note as one JSON file. The passcode is never included.
 
 - **An optional passcode.** The only gate in the app. It can be changed
   (checking the old one first) or removed, and a tap on the header's lock
@@ -93,9 +124,12 @@ often it broke, the closing note, and its full journey one tap away.
   for the passcode again, the way a locked chat app does — the browser
   session cookie alone would otherwise leave a reopened tab still
   unlocked.
-- **Installable and offline-capable**, in Roboto Mono throughout, with
-  scrollbars hidden and safe-area padding for notches and home
-  indicators on a phone.
+- **Installable**, in Roboto Mono throughout, with scrollbars hidden and
+  safe-area padding for notches and home indicators on a phone.
+- **Smooth by default.** Sheets slide up on a spring and can be dragged
+  down to close; cards ease in, glide into their new order and slide out
+  when archived; numbers count up and rings sweep round. Anyone with
+  Reduce Motion switched on gets plain fades instead.
 
 ---
 
@@ -154,6 +188,9 @@ src/
     streak.ts       Day maths and display caps
     tiers.ts        The ten milestone names and colours
     progress.ts     One view model shared by the card and the roadmap
+    zone.ts         Time-zone maths and date text, identical on every browser
+    clock.ts        The one shared ticking clock and display preferences
+    stats.ts        Every figure on the Stats screen, from existing rows
     email.ts        Brevo
     limits.ts       Text ceilings, mirrored by database constraints
   components/       Card, roadmap, journey, dialogs, sheets
@@ -161,7 +198,7 @@ src/
                      notifications
 ```
 
-Three ideas hold the whole thing together:
+Four ideas hold the whole thing together:
 
 1. **Streaks are never stored as a number.** The count is always
    `now − start_date`, computed on read. There's no counter to drift, and
@@ -171,6 +208,10 @@ Three ideas hold the whole thing together:
    everywhere so archiving a paused streak can't write a nonsense record.
 3. **One view model.** `progress.ts` turns a row into everything the UI
    draws, so the card and the roadmap can't disagree.
+4. **Derive it, don't store it.** Stats, countdowns, "paused for" and the
+   rest are all worked out from `start_date` and the break history, and
+   display choices live on the device. Nothing was added to the database
+   for any of them, which matters on a free plan.
 
 Limits are enforced in the database *and* the API, so a bug in one layer
 can't bypass the other. And since this is single-user, there's no account

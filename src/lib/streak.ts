@@ -12,7 +12,7 @@ export const LEGEND_CAP = 999;
  *  max_streak (new Date(null) is the Unix epoch). */
 export function currentStreakDays(
   startDate: string | Date | null,
-  asOf: string | Date = new Date()
+  asOf: string | Date | number = new Date()
 ): number {
   if (!startDate) return 0;
   const start = new Date(startDate).getTime();

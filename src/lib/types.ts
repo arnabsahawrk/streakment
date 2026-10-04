@@ -14,6 +14,9 @@ export interface Streak {
   archive_reason: string | null;
   email_enabled: boolean;
   created_at: string;
+  /** When a paused streak was paused (its latest reset). Read-only; the
+   *  list endpoint works it out from the existing reset history. */
+  paused_at?: string | null;
 }
 
 export interface ResetEntry {

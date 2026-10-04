@@ -40,13 +40,21 @@ export function decryptPasscode(blob: string): string {
 }
 
 /** Reads the one settings row, creating it on first access. Personal
- *  single-user app: there is exactly one of these, always. */
+ *  single-user app: there is exactly one of these, always.
+ *
+ *  It reads first and only writes when the row is genuinely missing. The
+ *  old version upserted on every call, which meant every page load wrote a
+ *  fresh copy of the row - pointless work, and dead rows piling up on a
+ *  free-plan database. */
 export async function getSettings(): Promise<UserSettings> {
-  const [row] = await sql`
-    insert into user_settings (singleton) values (true)
-    on conflict (singleton) do update set updated_at = user_settings.updated_at
-    returning *
-  `;
+  let [row] = await sql`select * from user_settings where singleton = true`;
+  if (!row) {
+    [row] = await sql`
+      insert into user_settings (singleton) values (true)
+      on conflict (singleton) do update set updated_at = user_settings.updated_at
+      returning *
+    `;
+  }
   return {
     email_milestones: row.email_milestones,
     timezone: row.timezone,

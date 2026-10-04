@@ -65,11 +65,41 @@ body::-webkit-scrollbar,
 }
 .sm-fade { animation: sm-fade 0.2s ease-out both; }
 
+@keyframes sm-pop {
+  from { opacity: 0; transform: scale(0.6); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.sm-pop { animation: sm-pop 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes sm-grow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.sm-grow { transform-origin: left center; animation: sm-grow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 @keyframes sm-flicker {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.82; }
 }
 .sm-flicker { animation: sm-flicker 2.4s ease-in-out infinite; }
+
+/* Press feedback: a quick, light squeeze on anything tappable. Pairs with
+   the touchstart listener in Providers, which is what makes iOS Safari
+   actually paint :active. */
+.press {
+  transition: transform 0.12s ease-out, opacity 0.15s ease-out, color 0.15s ease-out,
+    background-color 0.15s ease-out, border-color 0.15s ease-out;
+}
+.press:active {
+  transform: scale(0.94);
+}
+
+/* Sheets and long lists scroll on their own without dragging the page
+   behind them along. */
+.contain-scroll {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

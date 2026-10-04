@@ -1,6 +1,7 @@
 "use client";
 
-import { dayWord, formatDate, typeLabel } from "@/lib/format";
+import { now, useDisplay } from "@/lib/clock";
+import { dayWord, typeLabel } from "@/lib/format";
 import { currentStreakDays } from "@/lib/streak";
 import { getTier } from "@/lib/tiers";
 import type { ResetEntry, Streak } from "@/lib/types";
@@ -19,6 +20,7 @@ export default function HistorySheet({
   onClose: () => void;
 }) {
   const [data, setData] = useState<{ streak: Streak; resets: ResetEntry[] } | null>(null);
+  const d = useDisplay();
 
   useEffect(() => {
     fetch(`/api/streaks/${streakId}/detail`)
@@ -39,12 +41,13 @@ export default function HistorySheet({
   const isChallenge = s.type === "challenge" && !!s.goal_days;
   // For an archived streak, every number is fixed at the moment it was
   // archived — it must never still be counting up to today.
-  const asOf = s.archived ? (s.archived_at ?? undefined) : undefined;
+  const asOf = s.archived ? (s.archived_at ?? undefined) : now();
   const days = currentStreakDays(s.start_date, asOf);
   const best = Math.max(s.max_streak, s.archived ? 0 : days);
 
   return (
     <Modal title={s.name} onClose={onClose} wide>
+      <div className="sm-fade">
       <dl className="mb-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
         <div>
           <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Type</dt>
@@ -55,7 +58,7 @@ export default function HistorySheet({
         </div>
         <div>
           <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Started</dt>
-          <dd>{formatDate(s.created_at)}</dd>
+          <dd>{d.date(s.created_at)}</dd>
         </div>
 
         {s.archived ? (
@@ -73,7 +76,7 @@ export default function HistorySheet({
           <>
             <div>
               <dt className="text-[11px] uppercase tracking-wide text-paper-dim">Since</dt>
-              <dd>{s.start_date ? formatDate(s.start_date) : "Paused"}</dd>
+              <dd>{s.start_date ? d.date(s.start_date) : "Paused"}</dd>
             </div>
             {!isChallenge && (
               <div>
@@ -106,14 +109,18 @@ export default function HistorySheet({
         <p className="text-sm text-paper-dim">Never broken.</p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {data.resets.map((r) => (
-            <li key={r.id} className="border-b border-ember-line pb-3 last:border-0">
+          {data.resets.map((r, i) => (
+            <li
+              key={r.id}
+              className="sm-rise border-b border-ember-line pb-3 last:border-0"
+              style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}
+            >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="font-mono text-sm">
                   {r.streak_reached} {dayWord(r.streak_reached)}
                 </span>
                 <span className="text-[11px] text-paper-dim">
-                  {formatDate(r.run_start)} → {formatDate(r.reset_at)}
+                  {d.date(r.run_start)} → {d.dateTime(r.reset_at)}
                 </span>
               </div>
               {r.note && <p className="prose-text mt-1 text-xs text-paper-dim">{r.note}</p>}
@@ -121,6 +128,7 @@ export default function HistorySheet({
           ))}
         </ul>
       )}
+      </div>
     </Modal>
   );
 }

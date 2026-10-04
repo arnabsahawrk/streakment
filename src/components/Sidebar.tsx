@@ -1,20 +1,44 @@
 "use client";
 
-import { Archive, Settings as Cog, FileText, NotepadText, X, Zap } from "lucide-react";
+import { Archive, ChartColumn, Settings as Cog, FileText, NotepadText, X, Zap } from "lucide-react";
+import { motion } from "motion/react";
 
 export default function Sidebar({
   onClose,
   onOpen,
+  onIntent,
 }: {
   onClose: () => void;
-  onOpen: (what: "add" | "archive" | "settings") => void;
+  onOpen: (what: "add" | "archive" | "settings" | "stats") => void;
+  /** Warm up a screen's code the moment a finger lands on its button. */
+  onIntent?: (what: "archive" | "settings" | "stats") => void;
 }) {
   return (
-    <div className="fixed inset-0 z-40 flex" onClick={onClose}>
-      <div className="sm-fade absolute inset-0 bg-black/70" />
-      <aside
+    <motion.div
+      className="fixed inset-0 z-40 flex"
+      onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+    >
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.7)" }} />
+      <motion.aside
         onClick={(e) => e.stopPropagation()}
-        className="no-scrollbar relative ml-auto flex h-full w-72 max-w-[85vw] flex-col overflow-y-auto border-l border-ember-line bg-ash-raised p-5 sm-rise"
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 34, stiffness: 400 }}
+        drag="x"
+        dragDirectionLock
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={{ left: 0, right: 0.6 }}
+        dragSnapToOrigin
+        onDragEnd={(_, info) => {
+          if (info.offset.x > 80 || info.velocity.x > 500) onClose();
+        }}
+        style={{ touchAction: "pan-y" }}
+        className="no-scrollbar contain-scroll relative ml-auto flex h-full w-72 max-w-[85vw] flex-col overflow-y-auto border-l border-ember-line bg-ash-raised p-5"
       >
         <div className="mb-6 flex items-start justify-between">
           <div className="flex items-center gap-2.5">
@@ -31,7 +55,7 @@ export default function Sidebar({
               <p className="text-[10px] text-paper-dim">Streak + Commitment</p>
             </div>
           </div>
-          <button onClick={onClose} aria-label="Close" className="text-paper-dim hover:text-paper">
+          <button onClick={onClose} aria-label="Close" className="press p-1 text-paper-dim hover:text-paper">
             <X size={18} />
           </button>
         </div>
@@ -39,6 +63,7 @@ export default function Sidebar({
         <nav className="flex flex-col gap-1">
           {[
             { key: "add" as const, icon: Zap, label: "Add Streakment" },
+            { key: "stats" as const, icon: ChartColumn, label: "Stats" },
             { key: "archive" as const, icon: Archive, label: "Archive" },
           ].map(({ key, icon: Icon, label }) => (
             <button
@@ -47,7 +72,8 @@ export default function Sidebar({
                 onOpen(key);
                 onClose();
               }}
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-paper-dim transition-colors hover:bg-ash hover:text-paper"
+              onPointerDown={() => key !== "add" && onIntent?.(key)}
+              className="press flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-paper-dim transition-colors hover:bg-ash hover:text-paper"
             >
               <Icon size={16} /> {label}
             </button>
@@ -74,7 +100,8 @@ export default function Sidebar({
               onOpen("settings");
               onClose();
             }}
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-paper-dim transition-colors hover:bg-ash hover:text-paper"
+            onPointerDown={() => onIntent?.("settings")}
+            className="press flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-paper-dim transition-colors hover:bg-ash hover:text-paper"
           >
             <Cog size={16} /> Settings
           </button>
@@ -93,7 +120,7 @@ export default function Sidebar({
             </a>
           </p>
         </div>
-      </aside>
-    </div>
+      </motion.aside>
+    </motion.div>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { DAY_MS, deviceZone, fmtClock, fmtDateTime, fmtDay, isValidZone, partsOf } from "./zone";
+import { DAY_MS, deviceZone, fmtDateTime, fmtDay } from "./zone";
 
 /** One shared clock for the whole app.
  *
@@ -9,28 +9,11 @@ import { DAY_MS, deviceZone, fmtClock, fmtDateTime, fmtDay, isValidZone, partsOf
  *    countdowns), the minute (sorting, summaries) or the zone. React only
  *    re-renders a component when its own slice changes, so a ticking clock
  *    never re-draws a card.
- *  - Nothing here touches the database. The two display choices (a pinned
- *    zone, 12/24-hour) live in this device's localStorage. */
+ *  - The zone is always the one this device reports, so it follows the
+ *    device when it travels. Nothing here touches the database. */
 
-interface Prefs {
-  pin: string | null;
-  h12: boolean;
-}
-
-const KEY = "sm.clock.v1";
 const isBrowser = typeof window !== "undefined";
 
-function readPrefs(): Prefs {
-  if (!isBrowser) return { pin: null, h12: false };
-  try {
-    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? "null");
-    return { pin: isValidZone(raw?.pin) ? raw.pin : null, h12: raw?.h12 === true };
-  } catch {
-    return { pin: null, h12: false };
-  }
-}
-
-let prefs: Prefs = readPrefs();
 let deviceTz = isBrowser ? deviceZone() : "";
 let second = isBrowser ? Math.floor(Date.now() / 1000) : 0;
 let offset = 0;
@@ -111,42 +94,25 @@ export function noteServerDate(res: Response) {
   }
 }
 
-/** Change the on-device display choices. */
-export function setPrefs(patch: Partial<Prefs>) {
-  prefs = { ...prefs, ...patch };
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify(prefs));
-  } catch {
-    /* private mode: it still applies until the tab closes */
-  }
-  emit();
-}
-
 export const useSecond = () => useSyncExternalStore(subscribe, () => second, () => 0);
 export const useMinute = () => useSyncExternalStore(subscribe, () => Math.floor(second / 60), () => 0);
-/** The zone everything is shown in: the pinned one, else the device's. */
-export const useZone = () => useSyncExternalStore(subscribe, () => prefs.pin || deviceTz, () => "");
-export const useDeviceZone = () => useSyncExternalStore(subscribe, () => deviceTz, () => "");
-export const usePin = () => useSyncExternalStore(subscribe, () => prefs.pin, () => null);
-export const useHour12 = () => useSyncExternalStore(subscribe, () => prefs.h12, () => false);
+/** The zone this device is in right now ("" until the first tick). */
+export const useZone = () => useSyncExternalStore(subscribe, () => deviceTz, () => "");
 
 type When = string | number | Date;
 const toMs = (d: When) => (typeof d === "number" ? d : new Date(d).getTime());
 
-/** Date and time formatters bound to the live zone and clock style. A
- *  component that uses these redraws by itself when the zone changes. */
+/** Date and time formatters bound to the live zone. A component that uses
+ *  these redraws by itself when the device changes zone. */
 export function useDisplay() {
   const tz = useZone() || "UTC";
-  const h12 = useHour12();
   return useMemo(
     () => ({
       tz,
-      h12,
       date: (d: When) => fmtDay(toMs(d), tz),
-      dateTime: (d: When) => fmtDateTime(toMs(d), tz, h12),
-      time: (d: When) => fmtClock(partsOf(toMs(d), tz), h12, false),
+      dateTime: (d: When, seconds = false) => fmtDateTime(toMs(d), tz, seconds),
     }),
-    [tz, h12],
+    [tz],
   );
 }
 

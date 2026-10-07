@@ -1,15 +1,14 @@
 "use client";
 
-import { useHour12, useSecond, useZone } from "@/lib/clock";
+import { useSecond, useZone } from "@/lib/clock";
 import { MONTHS, WEEKDAYS, fmtClock, partsOf, zoneLabel } from "@/lib/zone";
 
 /** "Sat, Oct 3, 2026 · 21:32:47 · Asia/Dhaka" - ticking every second, in
- *  the zone the device is in right now (or the one pinned in Settings).
- *  Before the first tick it holds its place so nothing jumps. */
+ *  the zone the device is in right now, on the 24-hour clock. Before the
+ *  first tick it holds its place so nothing jumps. */
 export function ClockLine({ className = "" }: { className?: string }) {
   const sec = useSecond();
   const tz = useZone();
-  const h12 = useHour12();
 
   if (!sec || !tz) {
     return (
@@ -27,7 +26,7 @@ export function ClockLine({ className = "" }: { className?: string }) {
         {WEEKDAYS[p.wd]}, {MONTHS[p.m - 1]} {p.d}, {p.y}
       </span>
       {dot}
-      <span className="whitespace-nowrap font-semibold text-paper">{fmtClock(p, h12, true)}</span>
+      <span className="whitespace-nowrap font-semibold text-paper">{fmtClock(p, true)}</span>
       {dot}
       <span className="whitespace-nowrap">{zoneLabel(tz)}</span>
     </p>

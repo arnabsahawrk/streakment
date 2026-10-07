@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { isUnlocked } from "@/lib/session";
+import { hasPausedAt } from "@/lib/pause";
 
 export async function POST(
   _req: Request,
@@ -10,11 +11,10 @@ export async function POST(
   const { id } = await params;
 
   try {
-    const [row] = await sql`
-      update streaks set start_date = now()
-      where id = ${id} and archived = false
-      returning *
-    `;
+    // Beginning clears the pause time (if this database keeps one yet).
+    const [row] = (await hasPausedAt())
+      ? await sql`update streaks set start_date = now(), paused_at = null where id = ${id} and archived = false returning *`
+      : await sql`update streaks set start_date = now() where id = ${id} and archived = false returning *`;
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(row);
   } catch (e) {

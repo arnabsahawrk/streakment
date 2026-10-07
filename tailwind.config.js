@@ -11,7 +11,7 @@ module.exports = {
         paper: "#F2ECE3",
         "paper-dim": "#A79C8C",
         flame: "#FF6B35",
-        gold: "#E0A82E",
+        gold: "#FFC233",
       },
       fontFamily: {
         sans: ["var(--font-roboto-mono)", "ui-monospace", "monospace"],

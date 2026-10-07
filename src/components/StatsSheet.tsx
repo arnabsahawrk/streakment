@@ -3,13 +3,14 @@
 import { now, useDisplay } from "@/lib/clock";
 import { dayWord } from "@/lib/format";
 import { reducedMotion } from "@/lib/motion";
-import { readOpens } from "@/lib/opens";
-import { BLOCKS, buildStats, type BreakPattern, type StatReset, type StatStreak } from "@/lib/stats";
+import { GOLD } from "@/lib/progress";
+import { BLOCKS, BLOCK_HOURS, buildStats, type StatReset, type StatStreak } from "@/lib/stats";
 import { statsCache } from "@/lib/statsCache";
-import { TIERS } from "@/lib/tiers";
-import { WEEKDAYS, fmtDuration } from "@/lib/zone";
+import { TIERS, getTier } from "@/lib/tiers";
+import { WEEKDAYS } from "@/lib/zone";
 import { animate } from "motion/react";
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Flame, RotateCcw } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Loading from "./Loading";
 import Modal from "./Modal";
 
@@ -22,6 +23,12 @@ const CACHE_MS = 60_000;
 const cached = (): Data | null =>
   statsCache.data && Date.now() - statsCache.at < CACHE_MS ? (statsCache.data as Data) : null;
 
+const FLAME = "#FF6B35";
+const MUTED = "#4A3F36";
+const PAUSED = "#CFC4B2";
+const ARCHIVED = "#857869";
+const delay = (i: number, step = 55) => ({ animationDelay: `${i * step}ms` });
+
 /** A number that counts up to its value when it appears. Frames go straight
  *  into the page, not through React state. */
 function CountUp({ to }: { to: number }) {
@@ -30,14 +37,14 @@ function CountUp({ to }: { to: number }) {
     const el = ref.current;
     if (!el) return;
     if (to === 0 || reducedMotion()) {
-      el.textContent = String(to);
+      el.textContent = to.toLocaleString("en-US");
       return;
     }
     const controls = animate(0, to, {
-      duration: 0.8,
+      duration: 0.9,
       ease: "easeOut",
       onUpdate: (v) => {
-        el.textContent = String(Math.round(v));
+        el.textContent = Math.round(v).toLocaleString("en-US");
       },
     });
     return () => controls.stop();
@@ -45,73 +52,64 @@ function CountUp({ to }: { to: number }) {
   return <span ref={ref}>0</span>;
 }
 
-const delay = (i: number, step = 55) => ({ animationDelay: `${i * step}ms` });
-
-function Tile({ i, label, value, sub }: { i: number; label: string; value: number; sub?: string }) {
-  return (
-    <div className="sm-rise rounded-xl border border-ember-line bg-ash p-3" style={delay(i)}>
-      <p className="font-mono text-2xl font-bold leading-none tabular-nums">
-        <CountUp to={value} />
-      </p>
-      <p className="mt-1.5 text-[10px] uppercase tracking-wide text-paper-dim">{label}</p>
-      {sub && <p className="mt-1 break-words text-[11px] leading-snug text-paper-dim/80">{sub}</p>}
-    </div>
-  );
-}
-
 function Section({ i, title, children }: { i: number; title: string; children: ReactNode }) {
   return (
     <section className="sm-rise" style={delay(i, 70)}>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-paper-dim">{title}</p>
+      <div className="mb-3 flex items-center gap-2">
+        <span aria-hidden className="h-3 w-0.5 rounded-full bg-flame" />
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-paper-dim">{title}</p>
+      </div>
       {children}
     </section>
   );
 }
 
-function Row({ label, value, sub }: { label: string; value: string; sub?: string }) {
+/** A soft coloured glow tucked into a card's corner. */
+function Glow({ color, className = "" }: { color: string; className?: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-ember-line py-2.5 last:border-0">
-      <span className="text-sm text-paper-dim">{label}</span>
-      <span className="min-w-0 text-right">
-        <span className="font-mono text-sm tabular-nums">{value}</span>
-        {sub && <span className="mt-0.5 block truncate text-[11px] text-paper-dim/80">{sub}</span>}
-      </span>
-    </div>
+    <span
+      aria-hidden
+      className={`pointer-events-none absolute h-28 w-28 rounded-full ${className}`}
+      style={{ background: `radial-gradient(circle, ${color}33, transparent 70%)` }}
+    />
   );
 }
 
-function BreakGrid({ pattern, h12 }: { pattern: BreakPattern; h12: boolean }) {
-  const hours = h12 ? ["12a–6a", "6a–12p", "12p–6p", "6p–12a"] : ["00–06", "06–12", "12–18", "18–24"];
-  const order = [1, 2, 3, 4, 5, 6, 0]; // Monday first
+const CARD = "relative overflow-hidden rounded-2xl border border-ember-line";
+const CARD_BG = { background: "linear-gradient(160deg, #241E19 0%, #19150F 100%)" };
+
+/** One column per value, the tallest one lit. */
+function Columns({
+  values,
+  labels,
+  sub,
+  step,
+}: {
+  values: number[];
+  labels: readonly string[];
+  sub?: readonly string[];
+  step: number;
+}) {
+  const max = Math.max(1, ...values);
+  const top = Math.max(...values);
   return (
-    <div className="grid grid-cols-[2.5rem_repeat(4,minmax(0,1fr))] gap-1 text-[10px] text-paper-dim">
-      <span />
-      {BLOCKS.map((b, i) => (
-        <span key={b} className="pb-1 text-center leading-tight">
-          {b}
-          <span className="block text-paper-dim/60">{hours[i]}</span>
-        </span>
-      ))}
-      {order.map((wd, r) => (
-        <Fragment key={wd}>
-          <span className="flex items-center">{WEEKDAYS[wd]}</span>
-          {pattern.grid[wd].map((n, b) => {
-            const k = pattern.max ? n / pattern.max : 0;
-            return (
-              <span
-                key={b}
-                className="sm-pop flex h-8 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums"
-                style={{
-                  background: n ? `rgba(255,107,53,${0.22 + 0.78 * k})` : "#241E19",
-                  color: k > 0.55 ? "#14110E" : "#F2ECE3",
-                  animationDelay: `${(r * 4 + b) * 14}ms`,
-                }}
-              >
-                {n || ""}
-              </span>
-            );
-          })}
-        </Fragment>
+    <div className="flex gap-1.5">
+      {values.map((v, i) => (
+        <div key={labels[i]} className="flex min-w-0 flex-1 flex-col items-center">
+          <span className="h-4 font-mono text-[11px] tabular-nums text-paper-dim">{v || ""}</span>
+          <div className="flex h-16 w-full items-end">
+            <div
+              className="sm-growy w-full rounded-md"
+              style={{
+                height: v ? `${Math.max(16, (v / max) * 100)}%` : "4px",
+                background: v === 0 ? "#241E19" : v === top ? `linear-gradient(180deg, #FF9A5C, ${FLAME})` : MUTED,
+                ...delay(i, step),
+              }}
+            />
+          </div>
+          <span className={`mt-2 text-[10px] ${v && v === top ? "text-paper" : "text-paper-dim"}`}>{labels[i]}</span>
+          {sub && <span className="text-[9px] text-paper-dim/60">{sub[i]}</span>}
+        </div>
       ))}
     </div>
   );
@@ -147,7 +145,6 @@ export default function StatsSheet({ onClose }: { onClose: () => void }) {
     () => (data ? buildStats(data.streaks, data.resets, now(), d.tz) : null),
     [data, d.tz],
   );
-  const opens = useMemo(() => readOpens(), []);
 
   let body: ReactNode;
   if (failed) {
@@ -169,118 +166,207 @@ export default function StatsSheet({ onClose }: { onClose: () => void }) {
     body = <Loading label="Counting" />;
   } else {
     const o = model.overview;
-    const maxBroken = Math.max(1, ...model.broken.map((b) => b.count));
+    const maxTier = Math.max(1, ...model.tiers);
+    const maxReset = Math.max(1, ...model.mostReset.map((b) => b.count));
+    const longestColor = o.longest ? (o.longest.challenge ? GOLD : getTier(o.longest.days).color) : FLAME;
+    const longestName = o.longest ? (o.longest.challenge ? "Challenge" : getTier(o.longest.days).name) : "";
+    const split = o.alive + o.paused + o.archived;
+    const challenges = o.challengesMet + o.challengesMissed;
+
     body = (
-      <div className="flex flex-col gap-6 pb-1">
-        <div className="grid grid-cols-2 gap-2">
-          <Tile i={0} label="Resets" value={o.resets} sub="lifetime" />
-          <Tile i={1} label="Days lit" value={o.daysLit} sub="across everything" />
-          <Tile
-            i={2}
-            label="Streakments"
-            value={o.started}
-            sub={`${o.alive} alive · ${o.paused} paused · ${o.archived} archived`}
-          />
-          <Tile i={3} label="App opens" value={opens.count} sub="on this device" />
+      <div className="flex flex-col gap-7 pb-1">
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className={`${CARD} sm-rise p-4`} style={CARD_BG}>
+            <Glow color={FLAME} className="-right-8 -top-8" />
+            <RotateCcw size={15} aria-hidden style={{ color: FLAME }} />
+            <p className="mt-3 font-mono text-4xl font-bold leading-none tabular-nums">
+              <CountUp to={o.resets} />
+            </p>
+            <p className="mt-2.5 text-[10px] uppercase tracking-[0.18em] text-paper-dim">Resets</p>
+            <p className="mt-1 text-[11px] text-paper-dim/70">all time</p>
+          </div>
+
+          <div className={`${CARD} sm-rise p-4`} style={{ ...CARD_BG, ...delay(1) }}>
+            <Glow color={GOLD} className="-right-8 -top-8" />
+            <Flame size={15} aria-hidden style={{ color: GOLD }} />
+            <p className="mt-3 font-mono text-4xl font-bold leading-none tabular-nums">
+              <CountUp to={o.started} />
+            </p>
+            <p className="mt-2.5 text-[10px] uppercase tracking-[0.18em] text-paper-dim">Streakments</p>
+            {split > 0 && (
+              <div className="mt-2.5 flex h-1.5 gap-0.5 overflow-hidden rounded-full">
+                {o.alive > 0 && <span className="rounded-full" style={{ flex: o.alive, background: FLAME }} />}
+                {o.paused > 0 && <span className="rounded-full" style={{ flex: o.paused, background: PAUSED }} />}
+                {o.archived > 0 && <span className="rounded-full" style={{ flex: o.archived, background: ARCHIVED }} />}
+              </div>
+            )}
+            <div className="mt-2.5 flex flex-wrap justify-between gap-x-2 gap-y-1.5">
+              {(
+                [
+                  ["alive", o.alive, FLAME],
+                  ["paused", o.paused, PAUSED],
+                  ["archived", o.archived, ARCHIVED],
+                ] as const
+              ).map(([label, n, color]) => (
+                <div key={label}>
+                  <p className="font-mono text-sm font-semibold leading-none tabular-nums" style={{ color }}>
+                    {n}
+                  </p>
+                  <p className="mt-1 text-[9px] uppercase tracking-wide text-paper-dim">{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {o.started === 0 ? (
-          <p className="text-sm text-paper-dim">The rest fills in once there&apos;s a streakment to count.</p>
-        ) : (
-          <>
-            <Section i={4} title="Lately">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl border border-ember-line bg-ash px-3 py-2.5">
-                  <p className="font-mono text-lg font-bold tabular-nums">{o.litWeek}</p>
-                  <p className="text-[10px] uppercase tracking-wide text-paper-dim">Days lit · 7 days</p>
-                </div>
-                <div className="rounded-xl border border-ember-line bg-ash px-3 py-2.5">
-                  <p className="font-mono text-lg font-bold tabular-nums">{o.litMonth}</p>
-                  <p className="text-[10px] uppercase tracking-wide text-paper-dim">Days lit · 30 days</p>
-                </div>
-              </div>
-            </Section>
+        {o.longest && (
+          <div
+            className={`${CARD} sm-rise p-4`}
+            style={{
+              borderColor: `${longestColor}55`,
+              background: `linear-gradient(135deg, ${longestColor}22 0%, #19150F 70%)`,
+              ...delay(2),
+            }}
+          >
+            <Glow color={longestColor} className="-right-6 -top-10 h-36 w-36" />
+            <div className="relative flex items-start justify-between gap-3">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-paper-dim">Longest run</p>
+              <span
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium"
+                style={{ borderColor: `${longestColor}77`, color: longestColor, background: `${longestColor}14` }}
+              >
+                <Flame size={12} aria-hidden />
+                {longestName}
+              </span>
+            </div>
+            <p className="relative mt-3 flex items-baseline gap-2">
+              <span className="font-mono text-5xl font-bold leading-none tabular-nums" style={{ color: longestColor }}>
+                <CountUp to={o.longest.days} />
+              </span>
+              <span className="text-sm text-paper-dim">{dayWord(o.longest.days)}</span>
+            </p>
+            <p className="relative mt-2.5 break-words text-sm">{o.longest.name}</p>
+          </div>
+        )}
 
-            <Section i={5} title="Records">
-              <div>
-                <Row
-                  label="Longest run"
-                  value={o.longest ? `${o.longest.days} ${dayWord(o.longest.days)}` : "—"}
-                  sub={o.longest?.name}
-                />
-                <Row
-                  label="Average run"
-                  value={o.avgRun === null ? "—" : `${Math.round(o.avgRun * 10) / 10} days`}
-                  sub={o.avgRun === null ? undefined : "before a reset"}
-                />
-                <Row
-                  label="Comeback"
-                  value={model.comeback ? fmtDuration(model.comeback.avgMs) : "—"}
-                  sub={
-                    model.comeback
-                      ? `fastest ${fmtDuration(model.comeback.fastestMs)} · reset to next Begin`
-                      : "from a reset to the next Begin"
-                  }
-                />
-                {o.challengesMet + o.challengesMissed > 0 && (
-                  <Row label="Challenges" value={`${o.challengesMet} met · ${o.challengesMissed} not`} />
+        {challenges > 0 && (
+          <Section i={3} title="Challenges">
+            <div className={`${CARD} p-4`} style={CARD_BG}>
+              <div className="flex h-2 gap-0.5 overflow-hidden rounded-full">
+                {o.challengesMet > 0 && <span className="rounded-full" style={{ flex: o.challengesMet, background: GOLD }} />}
+                {o.challengesMissed > 0 && (
+                  <span className="rounded-full" style={{ flex: o.challengesMissed, background: MUTED }} />
                 )}
               </div>
-            </Section>
+              <p className="mt-3 flex justify-between text-xs">
+                <span style={{ color: GOLD }}>
+                  <span className="font-mono font-semibold tabular-nums">{o.challengesMet}</span> met
+                </span>
+                <span className="text-paper-dim">
+                  <span className="font-mono font-semibold tabular-nums">{o.challengesMissed}</span> not met
+                </span>
+              </p>
+            </div>
+          </Section>
+        )}
 
-            <Section i={6} title="Tiers reached">
-              <div className="flex flex-wrap gap-1.5">
-                {TIERS.map((t, i) => {
-                  const n = model.tiers[i];
-                  return (
-                    <span
-                      key={t.name}
-                      className="sm-pop inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px]"
-                      style={{
-                        borderColor: n ? `${t.color}77` : "#2E2620",
-                        opacity: n ? 1 : 0.45,
-                        ...delay(i, 40),
-                      }}
-                    >
-                      <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: t.color }} />
-                      {t.name}
-                      {n > 0 && <span className="font-mono tabular-nums text-paper-dim">×{n}</span>}
+        {o.started > 0 && (
+          <Section i={4} title="Milestones reached">
+            <ul className="flex flex-col gap-3">
+              {TIERS.map((t, i) => {
+                const n = model.tiers[i];
+                return (
+                  <li key={t.name} className="flex items-center gap-3">
+                    <span className="flex w-28 shrink-0 items-baseline gap-1.5">
+                      <span className="text-xs font-medium" style={{ color: n ? t.color : "#6B6358" }}>
+                        {t.name}
+                      </span>
+                      <span className="font-mono text-[10px] text-paper-dim/60">{t.min}d</span>
                     </span>
-                  );
-                })}
-              </div>
-            </Section>
-
-            {model.pattern.total > 0 && (
-              <Section i={7} title="When resets happen">
-                <BreakGrid pattern={model.pattern} h12={d.h12} />
-                <p className="mt-2.5 text-[11px] text-paper-dim">
-                  {model.pattern.insight ?? "A pattern shows up after a few more resets."}
-                </p>
-              </Section>
-            )}
-
-            {model.broken.length > 0 && (
-              <Section i={8} title="Most reset">
-                <ul className="flex flex-col gap-3">
-                  {model.broken.map((b, i) => (
-                    <li key={i}>
-                      <div className="mb-1 flex items-baseline justify-between gap-3 text-xs">
-                        <span className="min-w-0 truncate">{b.name}</span>
-                        <span className="font-mono tabular-nums text-paper-dim">{b.count}</span>
-                      </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-ember-line">
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-ember-line/70">
+                      {n > 0 && (
                         <div
-                          className="sm-grow h-full rounded-full bg-flame"
-                          style={{ width: `${(b.count / maxBroken) * 100}%`, ...delay(i, 90) }}
+                          className="sm-grow h-full rounded-full"
+                          style={{
+                            width: `${Math.max(6, (n / maxTier) * 100)}%`,
+                            background: `linear-gradient(90deg, ${t.color}88, ${t.color})`,
+                            boxShadow: `0 0 10px ${t.color}55`,
+                            ...delay(i, 50),
+                          }}
                         />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </Section>
-            )}
-          </>
+                      )}
+                    </div>
+                    <span className="w-6 shrink-0 text-right font-mono text-xs tabular-nums text-paper-dim">
+                      {n || "–"}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </Section>
+        )}
+
+        {model.pattern.total > 0 && (
+          <Section i={5} title="When resets happen">
+            <div className={`${CARD} flex flex-col gap-5 p-4`} style={CARD_BG}>
+              <div>
+                <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-paper-dim">By day</p>
+                <Columns
+                  values={[1, 2, 3, 4, 5, 6, 0].map((wd) => model.pattern.byDay[wd])}
+                  labels={[1, 2, 3, 4, 5, 6, 0].map((wd) => WEEKDAYS[wd])}
+                  step={45}
+                />
+              </div>
+              <div>
+                <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-paper-dim">By time</p>
+                <Columns values={model.pattern.byBlock} labels={BLOCKS} sub={BLOCK_HOURS} step={70} />
+              </div>
+              <p className="border-t border-ember-line pt-3 text-xs text-paper-dim">
+                {model.pattern.insight ?? "A pattern shows up after a few more resets."}
+              </p>
+            </div>
+          </Section>
+        )}
+
+        {model.mostReset.length > 0 && (
+          <Section i={6} title="Most reset">
+            <ul className="flex flex-col gap-3.5">
+              {model.mostReset.map((b, i) => (
+                <li key={i} className="flex items-center gap-3">
+                  <span
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border font-mono text-[11px]"
+                    style={{
+                      borderColor: i === 0 ? `${FLAME}88` : "#2E2620",
+                      color: i === 0 ? FLAME : "#A79C8C",
+                      background: i === 0 ? `${FLAME}14` : "transparent",
+                    }}
+                  >
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-3 text-xs">
+                      <span className="min-w-0 truncate">{b.name}</span>
+                      <span className="font-mono tabular-nums text-paper-dim">{b.count}</span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-ember-line/70">
+                      <div
+                        className="sm-grow h-full rounded-full"
+                        style={{
+                          width: `${(b.count / maxReset) * 100}%`,
+                          background: i === 0 ? `linear-gradient(90deg, ${FLAME}, #FFA060)` : "#7A5A48",
+                          ...delay(i, 90),
+                        }}
+                      />
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {o.started === 0 && (
+          <p className="text-sm text-paper-dim">The rest fills in once there&apos;s a streakment to count.</p>
         )}
       </div>
     );

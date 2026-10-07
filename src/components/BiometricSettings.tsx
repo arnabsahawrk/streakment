@@ -169,13 +169,17 @@ export default function BiometricSettings() {
                 return (
                   <li
                     key={d.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-ember-line bg-ash px-3 py-2.5"
+                    className="flex items-start justify-between gap-3 rounded-lg border border-ember-line bg-ash px-3 py-2.5"
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm">
-                        {d.label}
-                        {mine && <span className="ml-2 text-[11px] text-flame">This device</span>}
-                      </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <p className="min-w-0 break-words text-sm">{d.label}</p>
+                        {mine && (
+                          <span className="shrink-0 whitespace-nowrap rounded-full border border-flame/40 px-2 py-0.5 text-[10px] text-flame">
+                            This device
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[11px] text-paper-dim">
                         Added {formatDate(d.created_at)}
                       </p>
@@ -186,7 +190,7 @@ export default function BiometricSettings() {
                     <button
                       onClick={() => remove(d)}
                       disabled={busy}
-                      className="shrink-0 text-xs text-paper-dim hover:text-red-400 disabled:opacity-40"
+                      className="press shrink-0 py-0.5 text-xs text-paper-dim hover:text-red-400 disabled:opacity-40"
                     >
                       {mine ? "Turn off" : "Remove"}
                     </button>

@@ -77,6 +77,12 @@ body::-webkit-scrollbar,
 }
 .sm-grow { transform-origin: left center; animation: sm-grow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+@keyframes sm-growy {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+.sm-growy { transform-origin: bottom center; animation: sm-growy 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 @keyframes sm-flicker {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.82; }

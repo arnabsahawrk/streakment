@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { getSettings, isUnlocked } from "@/lib/session";
+import { isValidZone } from "@/lib/zone";
 
 export async function GET() {
   if (!(await isUnlocked())) return NextResponse.json({ error: "Locked" }, { status: 401 });
@@ -14,7 +15,7 @@ export async function PATCH(req: Request) {
   const fields: Record<string, unknown> = {};
 
   if ("email_milestones" in body) fields.email_milestones = !!body.email_milestones;
-  if (typeof body.timezone === "string" && body.timezone.length <= 64) {
+  if (isValidZone(body.timezone)) {
     fields.timezone = body.timezone;
   }
 

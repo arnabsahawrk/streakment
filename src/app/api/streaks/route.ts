@@ -3,8 +3,8 @@ import sql from "@/lib/db";
 import { isUnlocked } from "@/lib/session";
 import { LIMITS, clamp } from "@/lib/limits";
 import { MAX_GOAL_DAYS } from "@/lib/progress";
-import { sendEmail, emailShell, streakDetailsBlock } from "@/lib/email";
-import { dayWord } from "@/lib/format";
+import { sendEmail, buildStreakEmail, type EmailStreak } from "@/lib/email";
+import { fillPausedAt } from "@/lib/pause";
 
 const NOTIFY_EMAIL = "arnabsahawrk@gmail.com";
 
@@ -12,18 +12,12 @@ export async function GET(req: Request) {
   if (!(await isUnlocked())) return NextResponse.json({ error: "Locked" }, { status: 401 });
 
   const archived = new URL(req.url).searchParams.get("archived") === "true";
-  // paused_at is read straight from the existing break history (the latest
-  // reset is the moment a paused streakment stopped), so the card can show
-  // how long it has been paused without storing anything new.
   const rows = await sql`
-    select s.*,
-      case when s.start_date is null and not s.archived
-        then (select max(r.reset_at) from reset_log r where r.streak_id = s.id)
-      end as paused_at
-    from streaks s
-    where s.archived = ${archived}
-    order by ${archived ? sql`s.archived_at desc` : sql`s.created_at asc`}
+    select * from streaks
+    where archived = ${archived}
+    order by ${archived ? sql`archived_at desc` : sql`created_at asc`}
   `;
+  if (!archived) await fillPausedAt(rows);
   return NextResponse.json(rows);
 }
 
@@ -69,18 +63,10 @@ export async function POST(req: Request) {
   // never fails the request. Only the daily cron's sends need the
   // claim-then-send dance (retries) - this fires exactly once, inline.
   try {
-    const [settings] = await sql`select email_milestones from user_settings where singleton = true`;
+    const [settings] = await sql`select email_milestones, timezone from user_settings where singleton = true`;
     if (settings?.email_milestones) {
-      const title = type === "challenge" ? `${row.name} — accepted` : `${row.name} — begun`;
-      const emailBody =
-        type === "challenge"
-          ? `<p style="margin:0 0 12px;color:#F2ECE3;font-size:15px;line-height:1.6">${goalDays} ${dayWord(goalDays ?? 0)}. Clock starts now.</p>
-${streakDetailsBlock({ name: row.name, why_note: row.why_note, reset_count: row.reset_count }, "Goal", `${goalDays} ${dayWord(goalDays ?? 0)}`)}
-<p style="margin:0;color:#A79C8C;font-size:14px;line-height:1.6">No shortcuts. Just the count.</p>`
-          : `<p style="margin:0 0 12px;color:#F2ECE3;font-size:15px;line-height:1.6">Day zero. The clock starts now.</p>
-${streakDetailsBlock({ name: row.name, why_note: row.why_note, reset_count: row.reset_count }, "Level", "Day Zero")}
-<p style="margin:0;color:#A79C8C;font-size:14px;line-height:1.6">No finish line on this one. Just don't stop tomorrow.</p>`;
-      const ok = await sendEmail({ to: NOTIFY_EMAIL, subject: title, html: emailShell(title, emailBody) });
+      const mail = buildStreakEmail("created", row as unknown as EmailStreak, 0, settings.timezone);
+      const ok = await sendEmail({ to: NOTIFY_EMAIL, subject: mail.subject, html: mail.html, text: mail.text });
       if (ok) {
         await sql`insert into email_log (streak_id, kind, marker) values (${row.id}, 'created', '0') on conflict do nothing`;
       }

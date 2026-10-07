@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import { isUnlocked } from "@/lib/session";
 import { currentStreakDays } from "@/lib/streak";
 import { LIMITS, clamp } from "@/lib/limits";
+import { hasPausedAt } from "@/lib/pause";
 
 /** Reset pauses rather than restarting: start_date goes to null and
  *  nothing counts again until an explicit Begin. That's deliberate - a
@@ -24,11 +25,13 @@ export async function POST(
     const streak = currentStreakDays(s.start_date);
     const newMax = Math.max(s.max_streak, streak);
 
-    const [updated] = await sql`
-      update streaks set start_date = null, max_streak = ${newMax}
-      where id = ${id}
-      returning *
-    `;
+    // Pausing records when it happened (paused_at) so the card can keep
+    // counting how long it has been paused after the app is closed.
+    // Pausing records when it happened (once section 6 of schema.sql has been
+    // run), so the card keeps counting how long it has been paused.
+    const [updated] = (await hasPausedAt())
+      ? await sql`update streaks set start_date = null, paused_at = now(), max_streak = ${newMax} where id = ${id} returning *`
+      : await sql`update streaks set start_date = null, max_streak = ${newMax} where id = ${id} returning *`;
 
     if (streak > 0 && s.start_date) {
       await sql`

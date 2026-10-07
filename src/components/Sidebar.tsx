@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ChartColumn, Settings as Cog, FileText, NotepadText, X, Zap } from "lucide-react";
+import { Archive, ChartColumn, Flame, Settings as Cog, FileText, NotepadText, X } from "lucide-react";
 import { motion } from "motion/react";
 
 export default function Sidebar({
@@ -62,7 +62,7 @@ export default function Sidebar({
 
         <nav className="flex flex-col gap-1">
           {[
-            { key: "add" as const, icon: Zap, label: "Add Streakment" },
+            { key: "add" as const, icon: Flame, label: "Add Streakment" },
             { key: "stats" as const, icon: ChartColumn, label: "Stats" },
             { key: "archive" as const, icon: Archive, label: "Archive" },
           ].map(({ key, icon: Icon, label }) => (

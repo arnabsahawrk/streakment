@@ -152,3 +152,18 @@ create table if not exists webauthn_challenges (
   constraint webauthn_challenge_kind check (kind in ('register', 'unlock'))
 );
 create index if not exists webauthn_challenges_age_idx on webauthn_challenges(created_at);
+
+-- ------------------------------------------------------------
+-- 6.  When a streakment was paused
+--
+--     The card shows how long a paused streakment has been paused,
+--     and keeps showing it after the app is closed - a pause can
+--     last days or months. This is the one small timestamp that
+--     makes that possible (it is cleared again on Begin).
+--
+--     Run this once in the Neon SQL editor. Until you do, everything
+--     still works; a pause just isn't remembered across reloads
+--     unless it came with a logged break. Safe to run more than once.
+-- ------------------------------------------------------------
+
+alter table streaks add column if not exists paused_at timestamptz;

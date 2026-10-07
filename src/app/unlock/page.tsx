@@ -17,7 +17,6 @@ import {
   type PreparedUnlock,
 } from "@/lib/biometric";
 import { markTabUnlocked } from "@/lib/tabLock";
-import { ClockLine } from "@/components/ClockLine";
 
 export default function UnlockPage() {
   const router = useRouter();
@@ -172,7 +171,6 @@ export default function UnlockPage() {
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
       <form onSubmit={submit} className="w-full max-w-xs">
-        <ClockLine className="mb-8 text-[11px] leading-relaxed text-paper-dim" />
         <p className="mb-3 font-mono text-xs uppercase tracking-[0.2em] text-paper-dim">Locked</p>
         <h1 className="mb-6 text-2xl font-semibold">
           {bio === "ready" ? "Unlock" : "Enter passcode"}

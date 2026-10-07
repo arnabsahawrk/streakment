@@ -1,7 +1,6 @@
 "use client";
 
-import { noteServerDate, now, useMinute } from "@/lib/clock";
-import { trackOpens } from "@/lib/opens";
+import { noteServerDate, now, useMinute, useZone } from "@/lib/clock";
 import { sortStreaks, useSort } from "@/lib/sort";
 import { dropStatsCache } from "@/lib/statsCache";
 import { clearTabUnlocked, isTabUnlocked } from "@/lib/tabLock";
@@ -12,7 +11,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AddStreakDialog } from "./Dialogs";
-import { NowPanel } from "./LiveClock";
+import { ClockPanel } from "./LiveClock";
 import Loading from "./Loading";
 import Sidebar from "./Sidebar";
 import StreakCard from "./StreakCard";
@@ -44,6 +43,7 @@ export default function Dashboard({ settings: initialSettings }: { settings: Use
   const [locking, setLocking] = useState(false);
   const sort = useSort();
   const minute = useMinute();
+  const zone = useZone();
 
   const load = useCallback(async () => {
     setLoadFailed(false);
@@ -66,7 +66,23 @@ export default function Dashboard({ settings: initialSettings }: { settings: Use
     load();
   }, [load]);
 
-  useEffect(() => trackOpens(), []);
+  // Keep the saved time zone matching the device, so the emails quote times
+  // in the zone the phone is actually in. It's an existing settings field,
+  // written only on the rare occasion the zone changes.
+  useEffect(() => {
+    if (!zone || zone === settings.timezone) return;
+    const t = setTimeout(() => {
+      fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ timezone: zone }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((next) => next && setSettings(next))
+        .catch(() => {});
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [zone, settings.timezone]);
 
   useEffect(() => {
     const t = setTimeout(() => (Object.keys(loaders) as (keyof typeof loaders)[]).forEach(warm), 3000);
@@ -161,7 +177,7 @@ export default function Dashboard({ settings: initialSettings }: { settings: Use
         </div>
       </header>
 
-      <NowPanel streaks={streaks} onOpenTime={() => setSheet("settings")} />
+      <ClockPanel />
 
       {sorted.length > 0 && (
         <motion.div

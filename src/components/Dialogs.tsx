@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Modal from "./Modal";
 import CharCount from "./CharCount";
-import { ClockLine } from "./ClockLine";
 import { LIMITS } from "@/lib/limits";
 import type { Streak } from "@/lib/types";
 
@@ -22,7 +21,6 @@ export function ResetDialog({
 
   return (
     <Modal title="Reset this streak?" onClose={onCancel}>
-      <ClockLine className="mb-3 text-[11px] leading-relaxed text-paper-dim" />
       <p className="mb-4 text-sm text-paper-dim">
         Day {streak} ends here.{" "}
         {streak > 0 ? "Best is kept if it's new. " : ""}
@@ -72,7 +70,6 @@ export function ArchiveDialog({
 
   return (
     <Modal title="Finish and archive?" onClose={onCancel}>
-      <ClockLine className="mb-3 text-[11px] leading-relaxed text-paper-dim" />
       <p className="mb-4 text-sm text-paper-dim">
         Stops counting and moves to the archive — history and numbers attached.
         Can&apos;t be undone.

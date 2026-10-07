@@ -97,8 +97,9 @@ function StreakCard({
     const row = await send(`/api/streaks/${streak.id}/reset`, "POST", { note }, "reset");
     if (!row) return;
     setResetOpen(false);
-    // The server just paused it; show that straight away.
-    onSaved({ ...row, paused_at: new Date(now()).toISOString() });
+    // The server stamped the pause time; use it, so what's shown now is
+    // exactly what will be shown after a reload.
+    onSaved({ ...row, paused_at: row.paused_at ?? new Date(now()).toISOString() });
   }
 
   async function begin() {
@@ -117,7 +118,7 @@ function StreakCard({
     const row = await send(`/api/streaks/${streak.id}`, "PATCH", { name, why_note: why }, "edit");
     if (!row) return;
     setEditOpen(false);
-    onSaved({ ...streak, ...row });
+    onSaved({ ...streak, ...row, paused_at: row.paused_at ?? streak.paused_at });
   }
 
   async function toggleEmail() {
@@ -238,11 +239,7 @@ function StreakCard({
 
         <div className="mt-5 flex w-full items-center justify-between gap-2 border-t border-ember-line pt-3">
           <span className="min-w-0 truncate text-[10px] text-paper-dim sm:text-[11px]">
-            {v.isPaused
-              ? streak.paused_at
-                ? `Paused ${d.dateTime(streak.paused_at)}`
-                : "Paused"
-              : `Began ${d.dateTime(streak.start_date as string)}`}
+            {v.isPaused ? "Paused" : d.dateTime(streak.start_date as string, true)}
           </span>
           <div className="flex shrink-0 items-center gap-2 text-paper-dim sm:gap-3">
             <button

@@ -122,7 +122,7 @@ export function buildStreakEmail(
   // ---- the details, in reading order
   const rows: [string, string][] = [
     ["Why", s.why_note],
-    ["Kind", challenge ? "Accept Challenge" : "Become Legend"],
+    ["Type", challenge ? "Accept Challenge" : "Become Legend"],
   ];
   if (challenge) rows.push(["Goal", `${goal} ${dayWord(goal)}`]);
   else rows.push(["Level", tier && tier.min > 0 ? `${tier.name} · ${tierIndex + 1} of ${TIERS.length}` : "Day Zero"]);

@@ -1,36 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Modal from "./Modal";
-import Loading from "./Loading";
-import { LegendRoadmap, ChallengeRoadmap } from "./Roadmap";
 import { now } from "@/lib/clock";
 import { viewOf } from "@/lib/progress";
 import type { Streak } from "@/lib/types";
+import { useEffect, useState } from "react";
+import Loading from "./Loading";
+import Modal from "./Modal";
+import { ChallengeRoadmap, LegendRoadmap } from "./Roadmap";
 
-/** The climb (or the challenge) ahead. Only ever opened for a streak
- *  that's currently running — an archived one shows Journey instead,
- *  since there's no more road left to draw. */
-export default function RoadmapSheet({
-  streakId,
-  onClose,
-}: {
-  streakId: string;
-  onClose: () => void;
-}) {
+/** The climb (or the stones) for a streakment that is still on the home
+ *  screen. An archived one has no road left to draw, so it only offers its
+ *  Journey. */
+export default function RoadmapSheet({ streakId, onClose }: { streakId: string; onClose: () => void }) {
   const [streak, setStreak] = useState<Streak | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    let off = false;
     fetch(`/api/streaks/${streakId}/detail`)
-      .then((r) => r.json())
-      .then((d) => setStreak(d.streak))
-      .catch(() => setStreak(null));
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => !off && setStreak(d.streak))
+      .catch(() => !off && setFailed(true));
+    return () => {
+      off = true;
+    };
   }, [streakId]);
 
   if (!streak) {
     return (
       <Modal title="Roadmap" onClose={onClose} wide>
-        <Loading label="Loading" />
+        {failed ? <p className="pb-4 text-sm text-paper-dim">Couldn&apos;t load the roadmap.</p> : <Loading label="Loading" />}
       </Modal>
     );
   }
@@ -40,11 +39,8 @@ export default function RoadmapSheet({
   return (
     <Modal title={streak.name} onClose={onClose} wide>
       <div className="sm-fade">
-        {v.isChallenge && v.goalDays ? (
-          <ChallengeRoadmap days={v.days} goal={v.goalDays} paused={v.isPaused} color={v.color} />
-        ) : (
-          <LegendRoadmap days={v.days} paused={v.isPaused} />
-        )}
+        {v.detail && <p className="mb-4 text-xs text-paper-dim">{v.detail}</p>}
+        {v.kind === "challenge" ? <ChallengeRoadmap view={v} /> : <LegendRoadmap view={v} />}
       </div>
     </Modal>
   );

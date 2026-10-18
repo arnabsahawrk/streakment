@@ -1,30 +1,41 @@
-export type StreakType = "legend" | "challenge";
+export type StreakType = "challenge" | "legend" | "infinite";
 
 export interface Streak {
   id: string;
   name: string;
   why_note: string;
   type: StreakType;
+  /** Challenge only, 1 to 365. */
   goal_days: number | null;
+  /** Null = a paused Legend. */
   start_date: string | null;
+  /** When a Legend was paused. Cleared on Begin. */
+  paused_at: string | null;
   max_streak: number;
-  reset_count: number;
+  fail_count: number;
+  /** The one-time rename has been used. */
+  renamed: boolean;
   archived: boolean;
   archived_at: string | null;
+  /** The closing note. */
   archive_reason: string | null;
+  /** Infinite only: stopped for good. */
+  stopped_at: string | null;
+  /** Infinite only: the archived Legend it came from. */
+  infinite_from: string | null;
   email_enabled: boolean;
   created_at: string;
-  /** When a paused streak was paused (its latest reset). Read-only; the
-   *  list endpoint works it out from the existing reset history. */
-  paused_at?: string | null;
+  /** Archive list only: this Legend went on as an Infinite streakment. */
+  continued_as_infinite?: boolean;
 }
 
-export interface ResetEntry {
+/** One failed run, from the fail_log table. */
+export interface FailEntry {
   id: string;
   streak_reached: number;
   note: string | null;
   run_start: string;
-  reset_at: string;
+  failed_at: string;
 }
 
 export interface UserSettings {
@@ -39,4 +50,11 @@ export interface BiometricDevice {
   label: string;
   created_at: string;
   last_used_at: string | null;
+}
+
+/** What the archive route returns: the archived row, and the new Infinite row
+ *  when the Legend went on as one. */
+export interface ArchiveResult {
+  archived: Streak;
+  infinite: Streak | null;
 }

@@ -1,10 +1,13 @@
 -- ============================================================
---  STREAKMENT — schema
+--  STREAKMENT: schema
 --  Keep the streakment alive.
 --
---  Personal, single-user app. No accounts, no login — the whole
---  database belongs to the one person running it. Run once against
---  a fresh Neon database.
+--  Personal, single-user app. No accounts, no login: the whole
+--  database belongs to the one person running it.
+--
+--  Run this ONCE, in full, on a brand-new Neon database (SQL
+--  editor). Every statement is safe to run again. The app never
+--  changes tables by itself: this file is the whole schema.
 -- ============================================================
 
 create extension if not exists "pgcrypto";
@@ -12,23 +15,26 @@ create extension if not exists "pgcrypto";
 -- ------------------------------------------------------------
 --  1. Settings. A single row, guarded by the boolean primary key
 --     trick below: `singleton` can only ever be `true`, and a
---     primary key can only ever hold one value of it, so there is
---     exactly one row, always.
+--     primary key holds one value of it once, so there is exactly
+--     one row, always.
 -- ------------------------------------------------------------
 
 create table if not exists user_settings (
   singleton        boolean primary key default true check (singleton),
-  -- Optional app passcode, reversibly encrypted (not hashed) with
-  -- PASSCODE_KEY, so a forgotten passcode can be decrypted and
-  -- emailed back rather than only ever reset. Null = off.
+  -- Optional app passcode, encrypted (not hashed) with PASSCODE_KEY so a
+  -- forgotten passcode can be emailed back. Null = no passcode.
   passcode_enc     text,
-  -- Milestone-email opt-out, global. A streak can also be muted
-  -- individually — see streaks.email_enabled below. Both must be
-  -- true for that streak's emails to send.
+  -- Global email switch. A streakment can also be muted on its own
+  -- (streaks.email_enabled). Both must be on for an email to go out.
   email_milestones boolean not null default true,
-  -- IANA zone, e.g. "Asia/Dhaka". Reserved for deciding which local
-  -- day a milestone lands on.
+  -- IANA zone. The app keeps it equal to the device zone so emails
+  -- quote the zone the phone is in.
   timezone         text not null default 'UTC',
+  -- Passcode throttle: 5 wrong tries lock the passcode screen for 15 minutes.
+  failed_unlocks   integer not null default 0,
+  locked_until     timestamptz,
+  -- "Forgot passcode" email: at most one a minute.
+  recover_sent_at  timestamptz,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
 );
@@ -36,17 +42,22 @@ create table if not exists user_settings (
 insert into user_settings (singleton) values (true) on conflict do nothing;
 
 -- ------------------------------------------------------------
---  2. Streaks.
+--  2. Streakments. Three layers, one table:
 --
---  type = 'legend'    : open-ended, "Become Legend" in the UI,
---                        goal_days must be null
---  type = 'challenge' : fixed-length, "Accept Challenge" in the UI,
---                        goal_days required (1..365)
+--  type = 'challenge' : Accept Challenge. 1 to 365 days (goal_days).
+--                       Counts to the goal, then stops. Failed sends it
+--                       straight to the archive. Never paused.
+--  type = 'legend'    : Become Legend. Exactly 365 days. Counts to 365,
+--                       then stops. Failed sends it back to the
+--                       beginning, paused until Begin.
+--  type = 'infinite'  : Infinite Streakment. Made only by "Archive and
+--                       Infinite" on a completed Legend. Counts with no
+--                       limit until Stop, then it is frozen for good.
 --
---  start_date null  = paused (reset, not yet restarted)
---  Current streak is always derived from start_date, never stored,
---  so there is no counter to keep in sync and no cron needed just
---  to make the numbers move.
+--  start_date null = paused (Legend only).
+--  Day counts are always worked out from start_date, never stored, so
+--  there is no counter to keep in sync and no job needed to make the
+--  numbers move. "Completed" is worked out the same way.
 -- ------------------------------------------------------------
 
 create table if not exists streaks (
@@ -56,13 +67,15 @@ create table if not exists streaks (
   type           text not null default 'legend',
   goal_days      integer,
   start_date     timestamptz default now(),
+  paused_at      timestamptz,
   max_streak     integer not null default 0,
-  reset_count    integer not null default 0,
+  fail_count     integer not null default 0,
+  renamed        boolean not null default false,
   archived       boolean not null default false,
   archived_at    timestamptz,
   archive_reason text,
-  -- Per-streak email mute. Global and per-streak both have to be on
-  -- for a milestone email to send.
+  stopped_at     timestamptz,
+  infinite_from  uuid references streaks(id) on delete set null,
   email_enabled  boolean not null default true,
   created_at     timestamptz not null default now(),
 
@@ -70,50 +83,58 @@ create table if not exists streaks (
   constraint why_len    check (char_length(why_note) between 1 and 800),
   constraint reason_len check (archive_reason is null or char_length(archive_reason) <= 300),
 
-  constraint type_valid check (type in ('legend', 'challenge')),
-  -- The two shapes are mutually exclusive, enforced here rather
-  -- than trusted to the API alone. The explicit `is not null`
-  -- matters: without it, a challenge row with a null goal_days makes
-  -- the BETWEEN evaluate to unknown, and Postgres passes a CHECK
-  -- whose result is unknown rather than failing it - so a goalless
-  -- challenge would slip straight through.
+  constraint type_valid check (type in ('legend', 'challenge', 'infinite')),
+  -- Keep the explicit "is not null": a challenge with a null goal_days
+  -- would make BETWEEN evaluate to unknown, and Postgres lets a CHECK
+  -- whose result is unknown pass instead of failing it.
   constraint goal_matches_type check (
-    (type = 'legend' and goal_days is null) or
-    (type = 'challenge' and goal_days is not null and goal_days between 1 and 365)
-  )
+    (type = 'challenge' and goal_days is not null and goal_days between 1 and 365) or
+    (type in ('legend', 'infinite') and goal_days is null)
+  ),
+  constraint challenge_never_paused check (type <> 'challenge' or archived or start_date is not null),
+  constraint infinite_shape check (
+    type <> 'infinite' or
+    (archived = false and start_date is not null and paused_at is null and email_enabled = false)
+  ),
+  constraint stopped_only_infinite check (stopped_at is null or type = 'infinite'),
+  constraint infinite_from_only_infinite check (infinite_from is null or type = 'infinite')
 );
 create index if not exists streaks_archived_idx on streaks(archived);
+create index if not exists streaks_infinite_from_idx on streaks(infinite_from) where infinite_from is not null;
 
 -- ------------------------------------------------------------
---  3. Reset history. run_start + reset_at bound each broken run.
+--  3. Failed history. One row each time a streakment fails after
+--     at least a day: run_start and failed_at bound the run that ended.
+--     A failed Challenge also gets its one row here.
 -- ------------------------------------------------------------
 
-create table if not exists reset_log (
+create table if not exists fail_log (
   id             uuid primary key default gen_random_uuid(),
   streak_id      uuid not null references streaks(id) on delete cascade,
   streak_reached integer not null,
   note           text,
   run_start      timestamptz not null,
-  reset_at       timestamptz not null default now(),
+  failed_at      timestamptz not null default now(),
 
-  constraint reset_note_len check (note is null or char_length(note) <= 200)
+  constraint fail_note_len check (note is null or char_length(note) <= 300)
 );
-create index if not exists reset_log_streak_idx on reset_log(streak_id, reset_at desc);
+create index if not exists fail_log_streak_idx on fail_log(streak_id, failed_at desc);
 
 -- ------------------------------------------------------------
---  4. Sent-email ledger. The milestone cron is only safe to
---     re-run because of this: one row per (streak, milestone),
---     enforced by a unique index, so a retry or an overlapping
---     run can never send the same congratulation twice.
+--  4. Sent-email ledger. The daily cron is only safe to re-run because
+--     of this: one row per (streakment, kind, marker), enforced by a
+--     unique index, so a retry or an overlapping run can never send the
+--     same email twice.
 -- ------------------------------------------------------------
 
 create table if not exists email_log (
-  id         uuid primary key default gen_random_uuid(),
-  streak_id  uuid references streaks(id) on delete cascade,
-  kind       text not null,
-  -- The day number crossed (or the challenge length, for challenge_complete).
-  marker     text not null,
-  sent_at    timestamptz not null default now(),
+  id        uuid primary key default gen_random_uuid(),
+  streak_id uuid references streaks(id) on delete cascade,
+  kind      text not null,                -- 'created' | 'milestone' | 'challenge_complete'
+  -- The day crossed (a Legend's later runs add "-r" and the run number)
+  -- or the challenge length.
+  marker    text not null,
+  sent_at   timestamptz not null default now(),
 
   constraint email_kind_valid check (kind in ('created', 'milestone', 'challenge_complete'))
 );
@@ -126,9 +147,6 @@ create unique index if not exists email_log_once_idx
 --     switched on, so a lost device can be removed on its own.
 --     It only ever adds a second way past the passcode; the
 --     passcode itself stays and keeps working everywhere.
---
---     Already running? Paste just this section into the Neon SQL
---     editor - every statement is safe to run more than once.
 -- ------------------------------------------------------------
 
 create table if not exists webauthn_credentials (
@@ -152,18 +170,3 @@ create table if not exists webauthn_challenges (
   constraint webauthn_challenge_kind check (kind in ('register', 'unlock'))
 );
 create index if not exists webauthn_challenges_age_idx on webauthn_challenges(created_at);
-
--- ------------------------------------------------------------
--- 6.  When a streakment was paused
---
---     The card shows how long a paused streakment has been paused,
---     and keeps showing it after the app is closed - a pause can
---     last days or months. This is the one small timestamp that
---     makes that possible (it is cleared again on Begin).
---
---     Run this once in the Neon SQL editor. Until you do, everything
---     still works; a pause just isn't remembered across reloads
---     unless it came with a logged break. Safe to run more than once.
--- ------------------------------------------------------------
-
-alter table streaks add column if not exists paused_at timestamptz;

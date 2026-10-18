@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import crypto from "crypto";
+import { safeEqual } from "@/lib/compare";
 import sql from "@/lib/db";
 import type { UserSettings } from "@/lib/types";
 
@@ -64,7 +65,7 @@ export async function getSettings(): Promise<UserSettings> {
 
 /** The one real security boundary in the app. If a passcode is set,
  *  the request must carry a cookie matching the stored (encrypted)
- *  value exactly - a plain string compare, no decryption needed for
+ *  value exactly - a constant-time compare, no decryption needed for
  *  every request. No passcode set means the app is intentionally wide
  *  open (e.g. first run). Every page and API route that touches streak
  *  data calls this. */
@@ -72,5 +73,5 @@ export async function isUnlocked(): Promise<boolean> {
   const [row] = await sql`select passcode_enc from user_settings where singleton = true`;
   if (!row?.passcode_enc) return true;
   const cookie = (await cookies()).get(PASSCODE_COOKIE)?.value;
-  return !!cookie && cookie === row.passcode_enc;
+  return !!cookie && safeEqual(cookie, row.passcode_enc);
 }

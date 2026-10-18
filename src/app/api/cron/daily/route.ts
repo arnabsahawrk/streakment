@@ -1,29 +1,28 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
-import { currentStreakDays } from "@/lib/streak";
-import { TIERS } from "@/lib/tiers";
-import { sendEmail, buildStreakEmail, type EmailStreak } from "@/lib/email";
+import { pendingEmail } from "@/lib/milestones";
+import { sendEmail } from "@/lib/email";
+import { buildStreakEmail, type EmailStreak } from "@/lib/emailTemplate";
+import { NOTIFY_EMAIL } from "@/lib/config";
 
 export const maxDuration = 60;
 
-/** Every notification email goes to this one address. Personal app, one
- *  person, no accounts to look an email up on. */
-const NOTIFY_EMAIL = "arnabsahawrk@gmail.com";
-
 /**
- * Runs once a day (vercel.json). Streaks are computed on read and nothing
- * happens at midnight on its own, so this is what turns "you crossed a
- * milestone" into an email. Two very different rhythms live here:
+ * Runs once a day (vercel.json). Day counts are worked out on read and
+ * nothing happens at midnight on its own, so this is what turns "you reached
+ * a milestone" into an email. Three layers, three rhythms:
  *
- * - Become Legend: one email at every one of the ten milestones.
- * - Accept Challenge: silent until the deadline, then exactly one email.
- *   (Its other email - on creation - is sent inline from the streaks
- *   route the moment it's made, not from here.)
+ * - Become Legend: one email at each of the ten milestones, the last being
+ *   Legend at 365.
+ * - Accept Challenge: silent until its goal, then exactly one email. (Its
+ *   other email, on creation, is sent from the streaks route.)
+ * - Infinite: never an email. Archived and paused ones are skipped too.
  *
- * Every send is recorded in email_log, which has a unique index on
- * (streak, kind, marker). A retry, an overlapping run, or a manual
- * trigger therefore cannot send the same email twice - the insert
- * simply conflicts and is skipped.
+ * What is due comes from `pendingEmail` (pure, unit-tested). It uses "has
+ * reached", not "is exactly on", so a day the cron missed can't lose an
+ * email. Every send is claimed in email_log first (unique on streak, kind
+ * and marker), so a retry, an overlapping run or a manual trigger can never
+ * send the same email twice.
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -38,45 +37,41 @@ export async function GET(req: Request) {
   }
 
   const rows = await sql`
-    select id, name, why_note, reset_count, type, goal_days, start_date, max_streak from streaks
-    where archived = false and start_date is not null and email_enabled = true
+    select id, name, why_note, type, goal_days, start_date, max_streak, fail_count, email_enabled, archived
+    from streaks
+    where archived = false and type <> 'infinite' and start_date is not null and email_enabled = true
   `;
 
   let sent = 0;
   let skipped = 0;
 
   for (const r of rows) {
-    const days = currentStreakDays(r.start_date);
-    if (days < 1) continue;
-
-    const isChallenge = r.type === "challenge" && !!r.goal_days;
-    let kind: "milestone" | "challenge_complete" | null = null;
-    if (isChallenge && days === r.goal_days) kind = "challenge_complete";
-    else if (!isChallenge && TIERS.some((t) => t.min === days)) kind = "milestone";
-    if (!kind) continue;
-    const marker = String(days);
+    const due = pendingEmail(r);
+    if (!due) continue;
 
     // Build the email first: if anything is wrong with it, skip this one
     // rather than claiming a send that never happens.
     let mail;
     try {
-      mail = buildStreakEmail(kind, r as unknown as EmailStreak, days, settings.timezone);
+      mail = buildStreakEmail(due.kind, r as unknown as EmailStreak, due.day, settings.timezone);
     } catch (e) {
-      console.error("couldn't build email for", r.id, e);
+      console.error("couldn't build email:", e instanceof Error ? e.message : "unknown error");
       continue;
     }
 
-    // Claim the send first. If this conflicts, another run already did it.
+    // Claim the send. If this conflicts, an earlier run already did it.
     const claim = await sql`
       insert into email_log (streak_id, kind, marker)
-      values (${r.id}, ${kind}, ${marker})
+      values (${r.id}, ${due.kind}, ${due.marker})
       on conflict do nothing
       returning id
     `;
-    if (claim.length === 0) { skipped++; continue; }
+    if (claim.length === 0) {
+      skipped++;
+      continue;
+    }
 
     const ok = await sendEmail({ to: NOTIFY_EMAIL, subject: mail.subject, html: mail.html, text: mail.text });
-
     if (ok) {
       sent++;
     } else {

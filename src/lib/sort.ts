@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { currentStreakDays } from "./streak";
+import { daysOf, isCompleted, isStopped, type RuleRow } from "./streak";
 import type { Streak } from "./types";
 
 /** How the streakments are ordered. A display choice, so it lives in this
@@ -7,8 +7,8 @@ import type { Streak } from "./types";
 export type SortKey = "short" | "long" | "new";
 
 export const SORTS: readonly { key: SortKey; label: string }[] = [
-  { key: "short", label: "Shortest first" },
-  { key: "long", label: "Longest first" },
+  { key: "short", label: "Shortest" },
+  { key: "long", label: "Longest" },
   { key: "new", label: "Newest" },
 ];
 
@@ -47,14 +47,32 @@ export function useSort(): SortKey {
   );
 }
 
-/** Shortest run first is the original order: the one closest to breaking
- *  sits at the top. Ties fall back to the order they were created in. */
-export function sortStreaks(streaks: Streak[], by: SortKey, nowMs: number): Streak[] {
-  const days = (s: Streak) => currentStreakDays(s.start_date, nowMs);
-  const created = (s: Streak) => Date.parse(s.created_at);
+type Sortable = RuleRow & { created_at: string };
+
+/** Completed ones always come first, in all three orders. After that:
+ *  Shortest puts the run closest to breaking at the top, Longest the
+ *  opposite, Newest the latest one made. Ties fall back to the order they
+ *  were created in. */
+export function sortStreaks<T extends Sortable = Streak>(streaks: T[], by: SortKey, nowMs: number): T[] {
+  const days = (s: T) => daysOf(s, nowMs);
+  const created = (s: T) => Date.parse(s.created_at);
+  const done = (s: T) => (isCompleted(s, nowMs) ? 0 : 1);
   return [...streaks].sort((a, b) => {
+    const first = done(a) - done(b);
+    if (first) return first;
     if (by === "new") return created(b) - created(a);
     const diff = by === "long" ? days(b) - days(a) : days(a) - days(b);
     return diff || created(a) - created(b);
+  });
+}
+
+/** The Infinite view: the ones still counting first (longest first), the
+ *  stopped ones after (longest first). */
+export function sortInfinite<T extends Sortable = Streak>(streaks: T[], nowMs: number): T[] {
+  const stopped = (s: T) => (isStopped(s) ? 1 : 0);
+  return [...streaks].sort((a, b) => {
+    const first = stopped(a) - stopped(b);
+    if (first) return first;
+    return daysOf(b, nowMs) - daysOf(a, nowMs) || Date.parse(a.created_at) - Date.parse(b.created_at);
   });
 }

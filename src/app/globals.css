@@ -107,6 +107,40 @@ body::-webkit-scrollbar,
   -webkit-overflow-scrolling: touch;
 }
 
+/* Gradient text: the fill shows through the letters. The -webkit- forms are
+   what older iOS Safari reads. */
+.gradient-text {
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* The Legend foil drifts slowly across its text and its card border. Only
+   the foil uses these. Reduce Motion stops them (see the rule below). */
+@keyframes sm-foil {
+  from { background-position: 0% 50%; }
+  to   { background-position: 100% 50%; }
+}
+.sm-foil-slide {
+  background-size: 220% 100%;
+  animation: sm-foil 7s ease-in-out infinite alternate;
+}
+@keyframes sm-foil-border {
+  from { background-position: 0 0, 0% 50%; }
+  to   { background-position: 0 0, 100% 50%; }
+}
+.sm-foil-border {
+  background-size: 100% 100%, 300% 100%;
+  animation: sm-foil-border 8s ease-in-out infinite alternate;
+}
+
+/* Keyboard focus is always visible; a tap never draws the ring. */
+:focus-visible {
+  outline: 2px solid #FF6B35;
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

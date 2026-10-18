@@ -1,27 +1,30 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { isUnlocked } from "@/lib/session";
-import { hasPausedAt } from "@/lib/pause";
+import { failure, isId, locked, refusal, serverError } from "@/lib/api";
 
-export async function POST(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  if (!(await isUnlocked())) return NextResponse.json({ error: "Locked" }, { status: 401 });
+/** Begin: only a paused Legend starts again. On anything else nothing
+ *  matches and the current row comes back unchanged, so a stray Begin on a
+ *  running streakment can never restart it. */
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await isUnlocked())) return locked();
   const { id } = await params;
+  if (!isId(id)) return failure("Not found.", 404);
 
   try {
-    // Beginning clears the pause time (if this database keeps one yet).
-    const [row] = (await hasPausedAt())
-      ? await sql`update streaks set start_date = now(), paused_at = null where id = ${id} and archived = false returning *`
-      : await sql`update streaks set start_date = now() where id = ${id} and archived = false returning *`;
-    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json(row);
+    const [row] = await sql`
+      update streaks set start_date = now(), paused_at = null
+      where id = ${id} and type = 'legend' and archived = false and start_date is null
+      returning *
+    `;
+    if (row) return NextResponse.json(row);
+
+    const [cur] = await sql`select * from streaks where id = ${id}`;
+    if (!cur) return failure("Not found.", 404);
+    if (cur.type === "legend" && !cur.archived) return NextResponse.json(cur);
+    const { status, message } = refusal("begin", cur);
+    return failure(message, status);
   } catch (e) {
-    console.error("start failed:", e);
-    return NextResponse.json(
-      { error: e instanceof Error ? `Couldn't begin: ${e.message}` : "Couldn't begin that." },
-      { status: 500 }
-    );
+    return serverError("begin that", e);
   }
 }

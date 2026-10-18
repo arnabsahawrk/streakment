@@ -1,19 +1,21 @@
 "use client";
 
 import { noteServerDate, now, useMinute, useZone } from "@/lib/clock";
-import { sortStreaks, useSort } from "@/lib/sort";
+import { sortInfinite, sortStreaks, useSort } from "@/lib/sort";
 import { dropStatsCache } from "@/lib/statsCache";
+import { isCompleted, isStopped, kindOf } from "@/lib/streak";
 import { clearTabUnlocked, isTabUnlocked } from "@/lib/tabLock";
-import type { Streak, UserSettings } from "@/lib/types";
+import type { ArchiveResult, Streak, UserSettings } from "@/lib/types";
 import { ChartColumn, Menu, Unlock } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AddStreakDialog } from "./Dialogs";
+import InfiniteMark from "./InfiniteMark";
 import { ClockPanel } from "./LiveClock";
 import Loading from "./Loading";
-import Sidebar from "./Sidebar";
+import PathStrip from "./PathStrip";
+import { loadDialogs, loadJourney, loadRoadmap } from "./lazy";
 import StreakCard from "./StreakCard";
 
 // The three big screens are opened now and then, not every visit, so their
@@ -30,6 +32,15 @@ const SettingsSheet = dynamic(loaders.settings, { ssr: false });
 const StatsSheet = dynamic(loaders.stats, { ssr: false });
 const warm = (what: keyof typeof loaders) => void loaders[what]();
 
+// An Infinite card only exists once a Legend has gone on as one. The menu and
+// the Add dialog open on a tap, so they too load on demand (and are warmed).
+const loadInfinite = () => import("./InfiniteCard");
+const loadSidebar = () => import("./Sidebar");
+const loadAdd = () => import("./AddStreakDialog");
+const InfiniteCard = dynamic(loadInfinite, { ssr: false });
+const Sidebar = dynamic(loadSidebar, { ssr: false });
+const AddStreakDialog = dynamic(() => loadAdd().then((m) => m.AddStreakDialog), { ssr: false });
+
 type Sheet = "archive" | "settings" | "stats" | null;
 
 export default function Dashboard({ settings: initialSettings }: { settings: UserSettings }) {
@@ -41,6 +52,7 @@ export default function Dashboard({ settings: initialSettings }: { settings: Use
   const [sheet, setSheet] = useState<Sheet>(null);
   const [adding, setAdding] = useState(false);
   const [locking, setLocking] = useState(false);
+  const [view, setView] = useState<"main" | "infinite">("main");
   const sort = useSort();
   const minute = useMinute();
   const zone = useZone();
@@ -85,7 +97,15 @@ export default function Dashboard({ settings: initialSettings }: { settings: Use
   }, [zone, settings.timezone]);
 
   useEffect(() => {
-    const t = setTimeout(() => (Object.keys(loaders) as (keyof typeof loaders)[]).forEach(warm), 3000);
+    const t = setTimeout(() => {
+      (Object.keys(loaders) as (keyof typeof loaders)[]).forEach(warm);
+      // What a card opens (its dialogs, journey and roadmap), also ready ahead of the tap.
+      void loadDialogs();
+      void loadJourney();
+      void loadRoadmap();
+      void loadSidebar();
+      void loadAdd();
+    }, 3000);
     return () => clearTimeout(t);
   }, []);
 
@@ -138,16 +158,48 @@ export default function Dashboard({ settings: initialSettings }: { settings: Use
     dropStatsCache();
     setStreaks((list) => (list ? list.map((x) => (x.id === s.id ? s : x)) : list));
   }, []);
-  const archived = useCallback((id: string) => {
+
+  // A card leaves the home screen: archived, or a failed Challenge. When a
+  // Legend went on as Infinite, its new card arrives in the same step.
+  const archived = useCallback((r: ArchiveResult) => {
     dropStatsCache();
-    setStreaks((list) => (list ? list.filter((x) => x.id !== id) : list));
+    setStreaks((list) => {
+      if (!list) return list;
+      const rest = list.filter((x) => x.id !== r.archived.id);
+      return r.infinite ? [...rest, r.infinite] : rest;
+    });
   }, []);
 
-  const sorted = useMemo(
-    () => (streaks ? sortStreaks(streaks, sort, minute ? minute * 60_000 : now()) : []),
-    [streaks, sort, minute],
-  );
-  const paused = sorted.filter((s) => !s.start_date).length;
+  const nowMs = minute ? minute * 60_000 : now();
+
+  const { mine, infinites } = useMemo(() => {
+    const all = streaks ?? [];
+    return {
+      mine: all.filter((s) => kindOf(s) !== "infinite"),
+      infinites: all.filter((s) => kindOf(s) === "infinite"),
+    };
+  }, [streaks]);
+
+  const sortedMine = useMemo(() => sortStreaks(mine, sort, nowMs), [mine, sort, nowMs]);
+  const sortedInfinite = useMemo(() => sortInfinite(infinites, nowMs), [infinites, nowMs]);
+
+  // The Infinite view only exists while there is an Infinite streakment.
+  const showInfinite = view === "infinite" && infinites.length > 0;
+
+  const paused = mine.filter((s) => !s.start_date).length;
+  const completed = mine.filter((s) => isCompleted(s, nowMs)).length;
+  const alive = mine.length - paused - completed;
+  const stopped = infinites.filter((s) => isStopped(s)).length;
+  const counting = infinites.length - stopped;
+
+  const summary = showInfinite
+    ? `${counting} counting · ${stopped} stopped`
+    : [`${alive} alive`, paused > 0 && `${paused} paused`, completed > 0 && `${completed} completed`]
+        .filter(Boolean)
+        .join(" · ");
+
+  const pill =
+    "press inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] hover:text-paper";
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-16 pt-6 sm:px-5 sm:pt-12">
@@ -169,6 +221,7 @@ export default function Dashboard({ settings: initialSettings }: { settings: Use
           )}
           <button
             onClick={() => setMenuOpen(true)}
+            onPointerDown={() => void loadSidebar()}
             aria-label="Menu"
             className="press rounded-lg border border-ember-line p-2 text-paper-dim hover:text-paper"
           >
@@ -179,22 +232,31 @@ export default function Dashboard({ settings: initialSettings }: { settings: Use
 
       <ClockPanel />
 
-      {sorted.length > 0 && (
+      {streaks && streaks.length > 0 && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="mb-4 mt-4 flex items-center justify-between gap-3"
+          className="mb-4 mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
         >
-          <p className="text-xs text-paper-dim">
-            {sorted.length - paused} alive{paused > 0 && ` · ${paused} paused`}
-          </p>
-          <button
-            onClick={() => setSheet("stats")}
-            onPointerDown={() => warm("stats")}
-            className="press inline-flex items-center gap-1.5 rounded-full border border-ember-line px-3 py-1.5 text-[11px] text-paper-dim hover:text-paper"
-          >
-            <ChartColumn size={13} aria-hidden /> Stats
-          </button>
+          <p className="min-w-0 text-xs text-paper-dim">{summary}</p>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <button
+              onClick={() => setSheet("stats")}
+              onPointerDown={() => warm("stats")}
+              className={`${pill} border-ember-line text-paper-dim`}
+            >
+              <ChartColumn size={13} aria-hidden /> Stats
+            </button>
+            {infinites.length > 0 && (
+              <button
+                onClick={() => setView(showInfinite ? "main" : "infinite")}
+                aria-pressed={showInfinite}
+                className={`${pill} ${showInfinite ? "border-gold/70 bg-gold/10 text-paper" : "border-ember-line text-paper-dim"}`}
+              >
+                <InfiniteMark width={17} stroke={2.4} foil={false} /> Infinite
+              </button>
+            )}
+          </div>
         </motion.div>
       )}
 
@@ -213,27 +275,28 @@ export default function Dashboard({ settings: initialSettings }: { settings: Use
         ) : (
           <Loading />
         )
-      ) : sorted.length === 0 ? (
+      ) : (showInfinite ? sortedInfinite : sortedMine).length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="mt-4 rounded-2xl border border-dashed border-ember-line px-6 py-14 text-center"
         >
-          <p className="mb-1 text-lg font-semibold">Nothing lit yet</p>
-          <p className="mx-auto mb-6 max-w-xs text-sm text-paper-dim">
-            Start with one thing. Not the hardest — the one I&apos;m most ready for.
+          <p className="mx-auto mb-5 max-w-xs text-lg font-semibold">
+            {streaks.length === 0 ? "Nothing started yet. Start with one small challenge." : "Nothing running now. Start the next one."}
           </p>
+          <PathStrip active="challenge" center className="mx-auto mb-6 max-w-xs text-[11px] text-paper-dim" />
           <button
             onClick={() => setAdding(true)}
+            onPointerDown={() => void loadAdd()}
             className="press rounded-full bg-flame px-5 py-2.5 text-sm font-semibold text-ash"
           >
-            Light the first one
+            {streaks.length === 0 ? "Start the first one" : "Start a new one"}
           </button>
         </motion.div>
       ) : (
         <div className="relative flex flex-col gap-4">
           <AnimatePresence mode="popLayout">
-            {sorted.map((s, i) => (
+            {(showInfinite ? sortedInfinite : sortedMine).map((s, i) => (
               <motion.div
                 key={s.id}
                 layout="position"
@@ -245,7 +308,11 @@ export default function Dashboard({ settings: initialSettings }: { settings: Use
                 }}
                 exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.3 } }}
               >
-                <StreakCard streak={s} onSaved={saved} onArchived={archived} />
+                {kindOf(s) === "infinite" ? (
+                  <InfiniteCard streak={s} onSaved={saved} />
+                ) : (
+                  <StreakCard streak={s} onSaved={saved} onArchived={archived} />
+                )}
               </motion.div>
             ))}
           </AnimatePresence>
@@ -270,6 +337,7 @@ export default function Dashboard({ settings: initialSettings }: { settings: Use
             onCreated={(row) => {
               dropStatsCache();
               setAdding(false);
+              setView("main");
               setStreaks((list) => (list ? [...list, row] : [row]));
             }}
           />

@@ -1,67 +1,82 @@
 "use client";
 
-import { now, useDayClock, useDisplay } from "@/lib/clock";
-import { dayWord } from "@/lib/format";
-import { GOLD, viewOf } from "@/lib/progress";
-import { TIERS } from "@/lib/tiers";
-import type { Streak } from "@/lib/types";
+import { useDayClock, useDisplay } from "@/lib/clock";
+import { viewOf } from "@/lib/progress";
+import { send } from "@/lib/request";
+import { currentStreakDays } from "@/lib/streak";
+import { GOLD, TIERS } from "@/lib/tiers";
+import type { ArchiveResult, Streak } from "@/lib/types";
 import { Bell, BellOff, Flag, History, Pencil, Route } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import dynamic from "next/dynamic";
-import { memo, useEffect, useMemo, useState } from "react";
-import { ArchiveDialog, EditDialog, ResetDialog } from "./Dialogs";
+import { memo, useEffect, useRef, useState } from "react";
+import {
+  ArchiveEarlyDialog,
+  ArchiveInfiniteDialog,
+  FailChallengeDialog,
+  FailLegendDialog,
+  FinishDialog,
+  JourneySheet,
+  RenameDialog,
+  RoadmapSheet,
+} from "./lazy";
 import { NextDay, PausedFor } from "./LiveClock";
 import ProgressRing from "./ProgressRing";
 import StreakCounter from "./StreakCounter";
 
-// Opened rarely, so they load on demand instead of weighing down every visit.
-const HistorySheet = dynamic(() => import("./HistorySheet"), { ssr: false });
-const RoadmapSheet = dynamic(() => import("./RoadmapSheet"), { ssr: false });
+type Busy = "fail" | "begin" | "archive" | "mute" | "rename" | null;
+type DialogName = "fail" | "finish" | "infinite" | "early" | "rename" | null;
 
-type Busy = "reset" | "begin" | "archive" | "mute" | "edit" | null;
-
+/** One Accept Challenge or Become Legend card, in every state: running,
+ *  paused (Legend), completed (Challenge or Legend). Infinite has its own
+ *  card. Everything it shows comes from `viewOf`, so it can't disagree with
+ *  the rules the server enforces. */
 function StreakCard({
   streak,
   onSaved,
   onArchived,
 }: {
   streak: Streak;
-  /** The streak changed; here is its new state. */
+  /** The streakment changed; here is its new state. */
   onSaved: (s: Streak) => void;
-  onArchived: (id: string) => void;
+  /** It left the home screen (archived, or a failed Challenge). */
+  onArchived: (r: ArchiveResult) => void;
 }) {
-  const [resetOpen, setResetOpen] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
+  const [dialog, setDialog] = useState<DialogName>(null);
   const [roadmapOpen, setRoadmapOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [journeyOpen, setJourneyOpen] = useState(false);
   const [busy, setBusy] = useState<Busy>(null);
   const [pulse, setPulse] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const d = useDisplay();
 
   // Moves forward exactly when this streakment's day count changes, so the
-  // number flips on its own - even on a card left open overnight.
+  // number flips on its own, even on a card left open overnight.
   const clockNow = useDayClock(streak.start_date);
   const v = viewOf(streak, clockNow);
-  const best = Math.max(streak.max_streak, v.days);
+  /** The real days since it began. A completed Legend shows 365 but may be
+   *  well past it; "Archive and Infinite" continues from the real number. */
+  const realDays = currentStreakDays(streak.start_date, clockNow);
 
-  const hitMilestone = useMemo(() => {
-    if (v.isPaused || v.days <= 0) return false;
-    return v.isChallenge ? v.days === v.goalDays : TIERS.some((t) => t.min === v.days);
-  }, [v.isPaused, v.isChallenge, v.days, v.goalDays]);
-
+  // Confetti, only when the count goes UP while this card is on screen and
+  // lands on a milestone or the goal, or when it becomes completed. Never on
+  // page load: what was already true when the card appeared is not news.
+  const seen = useRef({ days: v.days, completed: v.isCompleted });
   useEffect(() => {
-    if (!hitMilestone) return;
+    const before = seen.current;
+    seen.current = { days: v.days, completed: v.isCompleted };
+    const onStep = v.kind === "challenge" ? v.days === v.goalDays : TIERS.some((t) => t.min === v.days);
+    const justCompleted = v.isCompleted && !before.completed;
+    if (!(v.days > before.days && onStep) && !justCompleted) return;
+
     let cancelled = false;
     // Loaded only at the moment it's needed: most visits never see it.
     import("canvas-confetti").then(({ default: confetti }) => {
       if (cancelled) return;
       confetti({
-        particleCount: v.isFinished ? 150 : 90,
-        spread: v.isFinished ? 100 : 75,
+        particleCount: justCompleted ? 150 : 90,
+        spread: justCompleted ? 100 : 75,
         origin: { y: 0.6 },
-        colors: [v.color, "#F2ECE3"],
+        colors: v.paint.foil ? [GOLD, "#FF8AD0", "#A58BFF", "#5DE2FF", "#F2ECE3"] : [v.color, "#F2ECE3"],
       });
     });
     setPulse(true);
@@ -70,55 +85,53 @@ function StreakCard({
       cancelled = true;
       clearTimeout(t);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hitMilestone]);
+  }, [v.days, v.isCompleted, v.kind, v.goalDays, v.color, v.paint.foil]);
 
-  async function send(url: string, method: "POST" | "PATCH", body: unknown, label: Exclude<Busy, null>) {
-    setBusy(label);
+  function open(name: Exclude<DialogName, null>) {
     setErr(null);
-    try {
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Didn't go through.");
-      return data as Streak;
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Didn't go through.");
-      return null;
-    } finally {
-      setBusy(null);
-    }
+    setDialog(name);
   }
 
-  async function reset(note: string) {
-    const row = await send(`/api/streaks/${streak.id}/reset`, "POST", { note }, "reset");
+  async function run<T>(label: Exclude<Busy, null>, url: string, method: "POST" | "PATCH", body?: unknown) {
+    setBusy(label);
+    setErr(null);
+    const r = await send<T>(url, method, body);
+    setBusy(null);
+    if (!r.ok) setErr(r.error);
+    return r.ok ? r.data : null;
+  }
+
+  async function fail(note: string) {
+    const row = await run<Streak>("fail", `/api/streaks/${streak.id}/fail`, "POST", { note });
     if (!row) return;
-    setResetOpen(false);
-    // The server stamped the pause time; use it, so what's shown now is
-    // exactly what will be shown after a reload.
-    onSaved({ ...row, paused_at: row.paused_at ?? new Date(now()).toISOString() });
+    setDialog(null);
+    // A failed Challenge goes straight to the archive; a Legend waits for Begin.
+    if (row.archived) onArchived({ archived: row, infinite: null });
+    else onSaved(row);
   }
 
   async function begin() {
-    const row = await send(`/api/streaks/${streak.id}/start`, "POST", undefined, "begin");
-    if (row) onSaved({ ...row, paused_at: null });
+    const row = await run<Streak>("begin", `/api/streaks/${streak.id}/start`, "POST");
+    if (row) onSaved(row);
   }
 
-  async function archive(reason: string) {
-    const row = await send(`/api/streaks/${streak.id}/archive`, "POST", { reason }, "archive");
-    if (!row) return;
-    setArchiveOpen(false);
-    onArchived(streak.id);
+  async function archive(reason: string, infinite: boolean) {
+    const data = await run<ArchiveResult>(
+      "archive",
+      `/api/streaks/${streak.id}/archive`,
+      "POST",
+      infinite ? { reason, infinite: true } : { reason },
+    );
+    if (!data) return;
+    setDialog(null);
+    onArchived(data);
   }
 
-  async function edit(name: string, why: string) {
-    const row = await send(`/api/streaks/${streak.id}`, "PATCH", { name, why_note: why }, "edit");
+  async function rename(name: string, why: string) {
+    const row = await run<Streak>("rename", `/api/streaks/${streak.id}`, "PATCH", { name, why_note: why });
     if (!row) return;
-    setEditOpen(false);
-    onSaved({ ...streak, ...row, paused_at: row.paused_at ?? streak.paused_at });
+    setDialog(null);
+    onSaved(row);
   }
 
   async function toggleEmail() {
@@ -126,83 +139,85 @@ function StreakCard({
     onSaved({ ...streak, email_enabled: next }); // instant; undone below if it fails
     setBusy("mute");
     setErr(null);
-    try {
-      const res = await fetch(`/api/streaks/${streak.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email_enabled: next }),
-      });
-      if (!res.ok) throw new Error();
-    } catch {
+    const r = await send<Streak>(`/api/streaks/${streak.id}`, "PATCH", { email_enabled: next });
+    setBusy(null);
+    if (!r.ok) {
       onSaved({ ...streak, email_enabled: !next });
       setErr("Couldn't change that.");
-    } finally {
-      setBusy(null);
     }
   }
 
   const liveLine = "mt-1.5 font-mono text-[11px] tabular-nums text-paper-dim/80";
+  const mainButton = "press mt-5 rounded-full px-7 py-2 text-sm font-semibold text-ash disabled:opacity-40";
+  const iconButton =
+    "press flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-paper-dim hover:text-paper disabled:opacity-40 min-[380px]:h-10 min-[380px]:w-10";
+
+  // A completed card gets a hairline border in its own gradient (the foil
+  // drifts slowly); a running one a soft tint of its colour.
+  const frame = v.isCompleted
+    ? {
+        border: "1px solid transparent",
+        backgroundImage: `linear-gradient(#1C1815, #1C1815), ${v.paint.css}`,
+        backgroundOrigin: "padding-box, border-box",
+        backgroundClip: "padding-box, border-box",
+      }
+    : { borderColor: v.days > 0 ? `${v.paint.solid}40` : "#2E2620" };
 
   return (
     <motion.div
       animate={pulse ? { scale: [1, 1.02, 1] } : { scale: 1 }}
       transition={{ duration: 0.7, ease: "easeOut" }}
-      className="relative overflow-hidden rounded-2xl border bg-ash-raised px-4 pb-5 pt-6 sm:px-6"
-      style={{ borderColor: v.isFinished ? `${GOLD}66` : "#2E2620" }}
+      className={`relative overflow-hidden rounded-2xl px-4 pb-3 pt-6 sm:px-6 ${
+        v.isCompleted ? (v.paint.foil ? "sm-foil-border" : "") : "border bg-ash-raised"
+      }`}
+      style={frame}
     >
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
-        style={{ background: `radial-gradient(circle at 50% 28%, ${v.color}22, transparent 68%)` }}
+        style={{ background: `radial-gradient(circle at 50% 28%, ${v.paint.glow}, transparent 68%)` }}
       />
 
-      <button
-        onClick={() => setEditOpen(true)}
-        aria-label="Edit name and why"
-        className="press absolute right-2 top-2 z-10 rounded-full p-2.5 text-paper-dim/60 hover:text-paper"
-      >
-        <Pencil size={14} />
-      </button>
+      {v.canRename && (
+        <button
+          onClick={() => open("rename")}
+          aria-label="Rename (one time)"
+          className="press absolute right-1 top-1 z-10 flex h-10 w-10 items-center justify-center rounded-full text-paper-dim/60 hover:text-paper"
+        >
+          <Pencil size={14} />
+        </button>
+      )}
 
       <div className="relative flex flex-col items-center text-center">
         <h3 className="break-words px-7 text-lg font-semibold">{streak.name}</h3>
         <p className="mt-1 max-w-xs break-words text-center text-xs text-paper-dim">{streak.why_note}</p>
 
         <div className="mt-5">
-          <ProgressRing progress={v.progress} color={v.color}>
+          <ProgressRing progress={v.progress} paint={v.paint}>
             {v.isPaused ? (
               <div className="px-3 text-center">
                 <p className="font-mono text-6xl font-bold leading-none text-paper-dim">—</p>
-                <p className="mt-2 text-[10px] uppercase tracking-[0.25em] text-paper-dim">Paused</p>
+                <p className="mt-2 text-[10px] uppercase tracking-[0.25em] text-paper-dim">{v.caption}</p>
               </div>
             ) : (
-              <StreakCounter value={v.days} label={v.daysLabel} caption={v.caption} color={v.color} />
+              <StreakCounter value={v.days} caption={v.caption} paint={v.paint} live={!v.isCompleted} shimmer={v.paint.foil} />
             )}
           </ProgressRing>
         </div>
 
-        {v.line && <p className="mt-4 max-w-xs text-sm font-bold text-paper">{v.line}</p>}
+        {v.badge && (
+          <span
+            className="mt-3 inline-flex items-center rounded-full border px-3 py-0.5 text-[11px] font-semibold"
+            style={{ color: v.color, borderColor: `${v.color}66`, background: v.paint.glow }}
+          >
+            {v.badge}
+          </span>
+        )}
 
-        <p className="mt-2 text-xs text-paper-dim">
-          {v.showsBest && (
-            <>
-              Best: {best} {dayWord(best)}
-            </>
-          )}
-          {!v.isPaused && v.isChallenge && v.goalDays && !v.isFinished && (
-            <>
-              {v.goalDays - v.days} {dayWord(v.goalDays - v.days)} to go
-            </>
-          )}
-          {!v.isPaused && !v.isChallenge && v.upNext && (
-            <>
-              {" "}
-              · {v.upNext.min - v.days} {dayWord(v.upNext.min - v.days)} to {v.upNext.name}
-            </>
-          )}
-        </p>
+        {v.line && <p className="mt-3 max-w-xs text-sm font-bold text-paper">{v.line}</p>}
+        {v.detail && <p className="mt-1.5 max-w-xs text-xs text-paper-dim">{v.detail}</p>}
 
-        {!v.isPaused && !v.isFinished && streak.start_date && (
+        {!v.isPaused && !v.isCompleted && streak.start_date && (
           <p className={liveLine}>
             <NextDay start={streak.start_date} />
           </p>
@@ -213,79 +228,75 @@ function StreakCard({
           </p>
         )}
 
-        {v.isFinished ? (
-          <button
-            onClick={() => setArchiveOpen(true)}
-            className="press mt-5 rounded-full bg-gold px-7 py-2 text-sm font-semibold text-ash"
-          >
-            Finish and archive
-          </button>
-        ) : v.isPaused ? (
-          <button
-            onClick={begin}
-            disabled={busy === "begin"}
-            className="press mt-5 rounded-full bg-flame px-7 py-2 text-sm font-semibold text-ash disabled:opacity-40"
-          >
-            {busy === "begin" ? "Lighting…" : "Begin"}
-          </button>
-        ) : (
-          <button
-            onClick={() => setResetOpen(true)}
-            className="press mt-5 rounded-full border border-ember-line bg-ash px-6 py-2 text-sm font-medium transition-colors hover:border-red-400/50 hover:text-red-400"
-          >
-            Reset
-          </button>
-        )}
+        <div className="flex flex-wrap items-center justify-center gap-x-2">
+          {v.canBegin && (
+            <button onClick={begin} disabled={busy === "begin"} className={`${mainButton} bg-flame`}>
+              {busy === "begin" ? "Starting…" : "Begin"}
+            </button>
+          )}
+          {v.canFail && (
+            <button
+              onClick={() => open("fail")}
+              className="press mt-5 rounded-full border border-ember-line bg-ash px-6 py-2 text-sm font-medium transition-colors hover:border-red-400/50 hover:text-red-400"
+            >
+              Failed
+            </button>
+          )}
+          {v.canFinish && (
+            <button onClick={() => open("finish")} className={`${mainButton} bg-gold`}>
+              Finish and Archive
+            </button>
+          )}
+          {v.canArchiveInfinite && (
+            <button
+              onClick={() => open("infinite")}
+              className="press mt-5 rounded-full border px-6 py-2 text-sm font-semibold text-paper"
+              style={{ borderColor: `${GOLD}99`, background: "#FFC2331A" }}
+            >
+              Archive and Infinite
+            </button>
+          )}
+        </div>
 
-        <div className="mt-5 flex w-full items-center justify-between gap-2 border-t border-ember-line pt-3">
-          <span className="min-w-0 truncate text-[10px] text-paper-dim sm:text-[11px]">
-            {v.isPaused ? "Paused" : d.dateTime(streak.start_date as string, true)}
+        {/* Footer: one row, never wrapping, the same on every device. */}
+        <div className="mt-4 flex w-full items-center justify-between gap-2 border-t border-ember-line pt-1.5">
+          <span className="min-w-0 flex-1 truncate text-left font-mono text-[12px] text-paper-dim">
+            {v.isPaused || !streak.start_date ? "Paused" : d.date(streak.start_date)}
           </span>
-          <div className="flex shrink-0 items-center gap-2 text-paper-dim sm:gap-3">
-            <button
-              onClick={toggleEmail}
-              disabled={busy === "mute"}
-              aria-label={
-                streak.email_enabled
-                  ? "Mute notifications for this streakment"
-                  : "Unmute notifications for this streakment"
-              }
-              className="press p-1 hover:text-paper disabled:opacity-40"
-            >
-              {streak.email_enabled ? (
-                <Bell className="size-[15px] sm:size-4" />
-              ) : (
-                <BellOff className="size-[15px] sm:size-4" />
-              )}
+          <div className="flex shrink-0 items-center">
+            {v.canMute && (
+              <button
+                onClick={toggleEmail}
+                disabled={busy === "mute"}
+                aria-label={streak.email_enabled ? "Mute emails for this streakment" : "Unmute emails for this streakment"}
+                className={iconButton}
+              >
+                {streak.email_enabled ? <Bell size={18} /> : <BellOff size={18} />}
+              </button>
+            )}
+            <button onClick={() => setRoadmapOpen(true)} aria-label="Open roadmap" className={iconButton}>
+              <Route size={18} />
             </button>
-            <button
-              onClick={() => setRoadmapOpen(true)}
-              aria-label="Open roadmap"
-              className="press p-1 hover:text-paper"
-            >
-              <Route className="size-[15px] sm:size-4" />
+            <button onClick={() => setJourneyOpen(true)} aria-label="Open journey" className={iconButton}>
+              <History size={18} />
             </button>
-            <button
-              onClick={() => setHistoryOpen(true)}
-              aria-label="Open reset history"
-              className="press p-1 hover:text-paper"
-            >
-              <History className="size-[15px] sm:size-4" />
-            </button>
-            <button onClick={() => setArchiveOpen(true)} aria-label="Archive" className="press p-1 hover:text-paper">
-              <Flag className="size-[15px] sm:size-4" />
-            </button>
+            {v.canArchiveEarly && (
+              <button onClick={() => open("early")} aria-label="Archive early" className={iconButton}>
+                <Flag size={18} />
+              </button>
+            )}
           </div>
         </div>
 
         <AnimatePresence>
-          {err && (
+          {err && !dialog && (
             <motion.p
               key="err"
+              role="alert"
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="mt-3 text-xs text-red-400"
+              className="mt-2 text-xs text-red-400"
             >
               {err}
             </motion.p>
@@ -294,37 +305,68 @@ function StreakCard({
       </div>
 
       <AnimatePresence>
-        {resetOpen && (
-          <ResetDialog
-            key="reset"
-            streak={v.days}
-            busy={busy === "reset"}
-            onCancel={() => setResetOpen(false)}
-            onConfirm={reset}
-          />
-        )}
-        {archiveOpen && (
-          <ArchiveDialog
-            key="archive"
+        {dialog === "fail" &&
+          (v.kind === "challenge" ? (
+            <FailChallengeDialog
+              key="fail"
+              busy={busy === "fail"}
+              error={err}
+              onCancel={() => setDialog(null)}
+              onConfirm={fail}
+            />
+          ) : (
+            <FailLegendDialog
+              key="fail"
+              day={v.days}
+              busy={busy === "fail"}
+              error={err}
+              onCancel={() => setDialog(null)}
+              onConfirm={fail}
+            />
+          ))}
+        {dialog === "finish" && (
+          <FinishDialog
+            key="finish"
             name={streak.name}
             busy={busy === "archive"}
-            onCancel={() => setArchiveOpen(false)}
-            onConfirm={archive}
+            error={err}
+            onCancel={() => setDialog(null)}
+            onConfirm={(reason) => archive(reason, false)}
           />
         )}
-        {editOpen && (
-          <EditDialog
-            key="edit"
+        {dialog === "infinite" && (
+          <ArchiveInfiniteDialog
+            key="infinite"
+            name={streak.name}
+            day={realDays}
+            busy={busy === "archive"}
+            error={err}
+            onCancel={() => setDialog(null)}
+            onConfirm={(reason) => archive(reason, true)}
+          />
+        )}
+        {dialog === "early" && (
+          <ArchiveEarlyDialog
+            key="early"
+            busy={busy === "archive"}
+            error={err}
+            onCancel={() => setDialog(null)}
+            onConfirm={(reason) => archive(reason, false)}
+          />
+        )}
+        {dialog === "rename" && (
+          <RenameDialog
+            key="rename"
             name={streak.name}
             why={streak.why_note}
-            busy={busy === "edit"}
+            busy={busy === "rename"}
             error={err}
-            onCancel={() => setEditOpen(false)}
-            onConfirm={edit}
+            onCancel={() => setDialog(null)}
+            onConfirm={rename}
           />
         )}
         {roadmapOpen && <RoadmapSheet key="roadmap" streakId={streak.id} onClose={() => setRoadmapOpen(false)} />}
-        {historyOpen && <HistorySheet key="history" streakId={streak.id} onClose={() => setHistoryOpen(false)} />}
+        {journeyOpen && <JourneySheet key="journey" streakId={streak.id} onClose={() => setJourneyOpen(false)} />}
       </AnimatePresence>
     </motion.div>
   );

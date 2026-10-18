@@ -4,8 +4,11 @@
 export const LIMITS = {
   name: 80,
   why: 800,
+  /** Closing note: Finish and Archive, Archive and Infinite, archive early,
+   *  and the note a failed Challenge must leave. */
   closingNote: 300,
-  resetNote: 200,
+  /** The optional "What happened?" when a Legend fails. */
+  failNote: 200,
 } as const;
 
 export function clamp(value: unknown, max: number): string {

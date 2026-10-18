@@ -1,7 +1,14 @@
 "use client";
 
-import { Archive, ChartColumn, Flame, Settings as Cog, FileText, NotepadText, X } from "lucide-react";
+import { Archive, BookOpen, ChartColumn, Flame, Settings as Cog, X } from "lucide-react";
 import { motion } from "motion/react";
+import PathStrip from "./PathStrip";
+
+const PHILOSOPHY_URL =
+  "https://app.notion.com/p/arnabsahawrk/STREAKMENT-PHILOSOPHY-3aeb14a91aeb80c5b8d8cd3fa66023ee";
+
+const ROW =
+  "press flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-paper-dim transition-colors hover:bg-ash hover:text-paper";
 
 export default function Sidebar({
   onClose,
@@ -38,9 +45,9 @@ export default function Sidebar({
           if (info.offset.x > 80 || info.velocity.x > 500) onClose();
         }}
         style={{ touchAction: "pan-y" }}
-        className="no-scrollbar contain-scroll relative ml-auto flex h-full w-72 max-w-[85vw] flex-col overflow-y-auto border-l border-ember-line bg-ash-raised p-5"
+        className="no-scrollbar contain-scroll relative ml-auto flex h-full w-[88vw] max-w-sm flex-col overflow-y-auto border-l border-ember-line bg-ash-raised p-5"
       >
-        <div className="mb-6 flex items-start justify-between">
+        <div className="mb-3 flex items-start justify-between">
           <div className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -60,6 +67,10 @@ export default function Sidebar({
           </button>
         </div>
 
+        {/* The three layers, straight under the brand: one line when there is
+            room, breaking at an arrow (never inside a name) when there isn't. */}
+        <PathStrip className="mb-6 text-[10px] tracking-tight text-paper-dim" />
+
         <nav className="flex flex-col gap-1">
           {[
             { key: "add" as const, icon: Flame, label: "Add Streakment" },
@@ -73,27 +84,13 @@ export default function Sidebar({
                 onClose();
               }}
               onPointerDown={() => key !== "add" && onIntent?.(key)}
-              className="press flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-paper-dim transition-colors hover:bg-ash hover:text-paper"
+              className={ROW}
             >
               <Icon size={16} /> {label}
             </button>
           ))}
-          <a
-            href="https://app.notion.com/p/arnabsahawrk/COMMITMENT-3aeb14a91aeb80c5b8d8cd3fa66023ee"
-            target="_blank"
-            rel="noreferrer noopener"
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-paper-dim transition-colors hover:bg-ash hover:text-paper"
-          >
-            <FileText size={16} /> Read Commitment
-          </a>
-          <a
-            href="https://app.notion.com/p/arnabsahawrk/NOTE-3bfb14a91aeb80548a99cfd97fe42abc"
-            target="_blank"
-            rel="noreferrer noopener"
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-paper-dim transition-colors hover:bg-ash hover:text-paper"
-          >
-            <NotepadText size={16} />
-            Read Note
+          <a href={PHILOSOPHY_URL} target="_blank" rel="noopener noreferrer" className={ROW}>
+            <BookOpen size={16} /> Streakment Philosophy
           </a>
           <button
             onClick={() => {
@@ -101,7 +98,7 @@ export default function Sidebar({
               onClose();
             }}
             onPointerDown={() => onIntent?.("settings")}
-            className="press flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-paper-dim transition-colors hover:bg-ash hover:text-paper"
+            className={ROW}
           >
             <Cog size={16} /> Settings
           </button>
@@ -113,7 +110,7 @@ export default function Sidebar({
             <a
               href="https://arnabsaha.vercel.app"
               target="_blank"
-              rel="noreferrer noopener"
+              rel="noopener noreferrer"
               className="text-flame hover:underline"
             >
               Arnab Saha

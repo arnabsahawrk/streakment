@@ -26,6 +26,10 @@ export default function UnlockPage() {
   const [recovering, setRecovering] = useState(false);
   const [recovered, setRecovered] = useState(false);
   const [misses, setMisses] = useState(0);
+  // Five wrong tries lock the passcode for 15 minutes (the server enforces
+  // it; this only keeps the form from inviting more tries meanwhile).
+  const [locked, setLocked] = useState(false);
+  const lockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Biometric unlock. Only offered on a device that turned it on in Settings
   // and whose browser can do it; the passcode form below works either way.
@@ -38,6 +42,7 @@ export default function UnlockPage() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (locked) return;
     setBusy(true);
     setErr(null);
     const res = await fetch("/api/passcode", {
@@ -50,11 +55,25 @@ export default function UnlockPage() {
       markTabUnlocked();
       router.replace("/");
       router.refresh();
-    } else {
-      setErr("Wrong passcode.");
-      setPasscode("");
-      setMisses((m) => m + 1);
+      return;
     }
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 429) {
+      const wait = Math.max(1, Number(data?.retry_after) || 900);
+      setLocked(true);
+      if (lockTimer.current) clearTimeout(lockTimer.current);
+      lockTimer.current = setTimeout(() => setLocked(false), wait * 1000);
+      setErr(typeof data?.error === "string" ? data.error : "Too many wrong tries. Try again later.");
+    } else {
+      const left = Number(data?.attempts_left);
+      setErr(
+        Number.isFinite(left) && left > 0
+          ? `That passcode isn't right. ${left} ${left === 1 ? "try" : "tries"} left.`
+          : "That passcode isn't right.",
+      );
+    }
+    setPasscode("");
+    setMisses((m) => m + 1);
   }
 
   async function forgot() {
@@ -66,8 +85,12 @@ export default function UnlockPage() {
       body: JSON.stringify({ action: "recover" }),
     });
     setRecovering(false);
-    if (res.ok) setRecovered(true);
-    else setErr("Couldn't send it.");
+    if (res.ok) {
+      setRecovered(true);
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    setErr(res.status === 429 && typeof data?.error === "string" ? data.error : "Couldn't send it.");
   }
 
   function dropBiometrics(message: string) {
@@ -131,6 +154,10 @@ export default function UnlockPage() {
     working.current = false;
     setBioBusy(false);
   }
+
+  useEffect(() => () => {
+    if (lockTimer.current) clearTimeout(lockTimer.current);
+  }, []);
 
   useEffect(() => {
     if (!getBiometricMarker()) return;
@@ -206,13 +233,18 @@ export default function UnlockPage() {
           autoFocus
           value={passcode}
           onChange={(e) => setPasscode(e.target.value)}
+          disabled={locked}
           placeholder="••••"
           className="w-full rounded-lg border border-ember-line bg-ash-raised px-4 py-3 font-mono text-lg tracking-widest focus:border-flame focus:outline-none"
         />
-        {err && <p className="mt-2 text-sm text-red-400">{err}</p>}
+        {err && (
+          <p role="alert" className="mt-2 text-sm text-red-400">
+            {err}
+          </p>
+        )}
         <button
           type="submit"
-          disabled={busy || !passcode}
+          disabled={busy || locked || !passcode}
           className={`mt-4 w-full rounded-lg py-3 font-semibold disabled:opacity-40 ${
             bio === "ready" ? "border border-ember-line text-paper" : "bg-flame text-ash"
           }`}

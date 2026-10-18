@@ -2,44 +2,63 @@ import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { isUnlocked } from "@/lib/session";
 import { LIMITS, clamp } from "@/lib/limits";
+import { completedSql } from "@/lib/sqlRules";
+import { failure, isId, locked, refusal, serverError } from "@/lib/api";
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  if (!(await isUnlocked())) return NextResponse.json({ error: "Locked" }, { status: 401 });
+/** Two things can change here:
+ *   - the email mute (any running or paused Challenge or Legend);
+ *   - the ONE rename: name and why together, once. After that the pencil is
+ *     gone for good. It is also refused once completed, once archived, and
+ *     always on an Infinite streakment.
+ *  The rename is a single guarded UPDATE (`renamed = false`), so two taps or
+ *  two tabs can never both win. */
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await isUnlocked())) return locked();
   const { id } = await params;
+  if (!isId(id)) return failure("Not found.", 404);
 
-  const body = await req.json().catch(() => ({}));
-  const fields: Record<string, unknown> = {};
-  if (typeof body.name === "string") {
-    const v = clamp(body.name, LIMITS.name);
-    if (v) fields.name = v;
-  }
-  if (typeof body.why_note === "string") {
-    const v = clamp(body.why_note, LIMITS.why);
-    if (v) fields.why_note = v;
-  }
-  if (typeof body.email_enabled === "boolean") {
-    fields.email_enabled = body.email_enabled;
-  }
-  if (Object.keys(fields).length === 0) {
-    return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
-  }
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") return failure("Nothing to update.", 400);
 
   try {
+    const renaming = typeof body.name === "string" || typeof body.why_note === "string";
+
+    if (!renaming) {
+      if (typeof body.email_enabled !== "boolean") return failure("Nothing to update.", 400);
+      const [row] = await sql`
+        update streaks set email_enabled = ${body.email_enabled}
+        where id = ${id} and archived = false and type <> 'infinite'
+        returning *
+      `;
+      if (row) return NextResponse.json(row);
+      const [cur] = await sql`select * from streaks where id = ${id}`;
+      const { status, message } = refusal("mute", cur);
+      return failure(message, status);
+    }
+
+    const [cur] = await sql`select name, why_note from streaks where id = ${id}`;
+    if (!cur) return failure("Not found.", 404);
+
+    const name = typeof body.name === "string" ? clamp(body.name, LIMITS.name) : cur.name;
+    const why = typeof body.why_note === "string" ? clamp(body.why_note, LIMITS.why) : cur.why_note;
+    if (!name || !why) return failure("Name and why can't be empty.", 400);
+    // A "change" that changes nothing neither succeeds nor uses the rename.
+    if (name === cur.name && why === cur.why_note) {
+      return failure("Nothing changed. Your one rename is still unused.", 400);
+    }
+
     const [row] = await sql`
-      update streaks set ${sql(fields)}
+      update streaks set name = ${name}, why_note = ${why}, renamed = true
       where id = ${id}
+        and renamed = false and archived = false and type <> 'infinite'
+        and not ${completedSql()}
       returning *
     `;
-    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json(row);
+    if (row) return NextResponse.json(row);
+    const [now] = await sql`select * from streaks where id = ${id}`;
+    const { status, message } = refusal("rename", now);
+    return failure(message, status);
   } catch (e) {
-    console.error("streak update failed:", e);
-    return NextResponse.json(
-      { error: e instanceof Error ? `Couldn't save: ${e.message}` : "Couldn't save that." },
-      { status: 500 }
-    );
+    return serverError("save that", e);
   }
 }

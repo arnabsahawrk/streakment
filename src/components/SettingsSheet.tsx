@@ -41,6 +41,7 @@ function OrderSettings() {
     <div className="mb-5">
       <H>Order</H>
       <Segmented id="sort" label="Order of streakments" value={sort} options={SORTS} onChange={setSort} />
+      <p className="mt-2 text-[11px] text-paper-dim">Completed ones always come first.</p>
     </div>
   );
 }
